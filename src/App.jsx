@@ -346,7 +346,7 @@ export default function App() {
         <div style={{ display:"flex", alignItems:"center", gap:"12px" }}>
           <div style={{ width:"28px", height:"28px", background:`linear-gradient(135deg,${sport.analystA.accent},${sport.analystB.accent})`, borderRadius:"2px", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"14px", transition:"background 0.4s" }}>{sport.emoji}</div>
           <div>
-            <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"19px", color:"#fff", letterSpacing:"4px" }}>PITCH INTELLIGENCE</div>
+            <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"19px", color:"#fff", letterSpacing:"4px" }}>SportIQ</div>
             <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#2a2a2a", letterSpacing:"2px" }}>AI SPORTS PLATFORM</div>
           </div>
         </div>
