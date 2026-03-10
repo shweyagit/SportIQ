@@ -1,4 +1,4 @@
-# ⚽ Pitch Intelligence — AI Sports Platform
+# ⚽ SportsIQ — AI Sports Platform
 
 A multi-sport AI platform powered by Claude. Supports Football, Cricket and Tennis.
 
