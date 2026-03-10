@@ -1,4 +1,4 @@
-# ⚽ SportsIQ — AI Sports Platform
+# ⚽ SportIQ — AI Sports Platform
 
 A multi-sport AI platform powered by Claude. Supports Football, Cricket and Tennis.
 
