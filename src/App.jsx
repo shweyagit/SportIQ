@@ -18,7 +18,7 @@ const SPORTS = {
   tennis: {
     label: "Tennis", emoji: "🎾", color: "#ffd700",
     suggestions: ["Federer, Nadal or Djokovic — the GOAT?", "Is Sinner the future of tennis?", "Best serve in history?", "Will anyone break Djokovic's Slam record?", "Clay vs Grass — hardest surface?"],
-    analystA: { name: "GORAN", role: "Game Analyst", accent: "#ffd700", bg: "#181200", persona: "You are Alex, a tennis game analyst. Focus on playing styles, court tactics, serve-return patterns, mental game, surface adaptation. Reference Federer, Nadal, Djokovic techniques. Be precise and tactical. Max 4 sentences." },
+    analystA: { name: "Marián", role: "Game Analyst", accent: "#ffd700", bg: "#181200", persona: "You are Alex, a tennis game analyst. Focus on playing styles, court tactics, serve-return patterns, mental game, surface adaptation. Reference Federer, Nadal, Djokovic techniques. Be precise and tactical. Max 4 sentences." },
     analystB: { name: "PATRICK", role: "Stats & History", accent: "#ff4081", bg: "#180008", persona: "You are Diana, a tennis historian and statistician. Focus on Slam records, head-to-head stats, ranking history, era comparisons. Use historical data to back arguments. Be opinionated and evidence-driven. Max 4 sentences." },
   }
 };
@@ -27,7 +27,11 @@ const SPORTS = {
 
 async function askClaude(prompt, systemPrompt) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST", headers: { "Content-Type": "application/json" },
+    method: "POST", headers: {
+          "Content-Type": "application/json",
+          "x-api-key": process.env.REACT_APP_ANTHROPIC_KEY,
+          "anthropic-version": "2023-06-01"
+        },
     body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, system: systemPrompt, messages: [{ role: "user", content: prompt }] })
   });
   const data = await res.json();
@@ -346,7 +350,7 @@ export default function App() {
         <div style={{ display:"flex", alignItems:"center", gap:"12px" }}>
           <div style={{ width:"28px", height:"28px", background:`linear-gradient(135deg,${sport.analystA.accent},${sport.analystB.accent})`, borderRadius:"2px", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"14px", transition:"background 0.4s" }}>{sport.emoji}</div>
           <div>
-            <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"19px", color:"#fff", letterSpacing:"4px" }}>PITCH INTELLIGENCE</div>
+            <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"19px", color:"#fff", letterSpacing:"4px" }}>SportIQ</div>
             <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#2a2a2a", letterSpacing:"2px" }}>AI SPORTS PLATFORM</div>
           </div>
         </div>
