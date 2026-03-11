@@ -46,16 +46,42 @@ async function askClaude(prompt, systemPrompt) {
   return data.content[0].text;
 }
 
+async function getWikiImage(title) {
+  const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
+  const data = await res.json();
+  if (data.originalimage?.source) return data.originalimage.source;
+  const thumb = data.thumbnail?.source;
+  return thumb ? thumb.replace(/\/\d+px-/, "/400px-") : null;
+}
+
 async function getPlayerImage(name) {
   try {
-    const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(name)}`);
-    const data = await res.json();
-    console.log("Wiki image data:", data.title, data.thumbnail, data.originalimage);
-    // Prefer originalimage (full res, no URL hacking needed), fall back to upscaled thumbnail
-    if (data.originalimage?.source) return data.originalimage.source;
-    const thumb = data.thumbnail?.source;
-    if (!thumb) return null;
-    return thumb.replace(/\/\d+px-/, "/400px-");
+    // 1. Try direct Wikipedia lookup
+    const direct = await getWikiImage(name);
+    if (direct) return direct;
+
+    // 2. Fallback: search Wikipedia to find the closest matching article
+    const searchRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(name)}&format=json&origin=*&srlimit=1`);
+    const searchData = await searchRes.json();
+    const topTitle = searchData?.query?.search?.[0]?.title;
+    if (topTitle && topTitle !== name) {
+      const fallback = await getWikiImage(topTitle);
+      if (fallback) return fallback;
+    }
+
+    // 3. Fallback: TheSportsDB (free, no API key, great for sports players)
+    const sdbRes = await fetch(`https://www.thesportsdb.com/api/v1/json/3/searchplayers.php?p=${encodeURIComponent(name)}`);
+    const sdbData = await sdbRes.json();
+    const player = sdbData?.player?.[0];
+    if (player?.strThumb) return player.strThumb;
+    if (player?.strCutout) return player.strCutout;
+
+    // 4. Fallback: DuckDuckGo Instant Answer image
+    const ddgRes = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(name)}&format=json&pretty=0`);
+    const ddgData = await ddgRes.json();
+    if (ddgData.Image) return `https://duckduckgo.com${ddgData.Image}`;
+
+    return null;
   } catch { return null; }
 }
 
@@ -171,7 +197,7 @@ function PlayerProfile({ sport }) {
             {/* Large photo panel */}
             <div style={{ width:"180px", flexShrink:0, background:"#0a0a0a", position:"relative" }}>
               {image
-                ? <img src={image} alt={profile.name} onError={e => { e.target.style.display="none"; e.target.nextElementSibling.style.display="flex"; }} style={{ width:"100%", height:"100%", minHeight:"220px", objectFit:"cover", objectPosition:"top", display:"block" }}/>
+                ? <img src={image} alt={profile.name} onError={e => { e.target.style.display="none"; e.target.nextElementSibling.style.display="flex"; }} style={{ width:"100%", height:"100%", minHeight:"220px", objectFit:"cover", objectPosition:"center top", display:"block" }}/>
                 : null}
               <div style={{ display: image ? "none" : "flex", width:"100%", minHeight:"220px", alignItems:"center", justifyContent:"center", fontSize:"52px", color:"#1f1f1f" }}>👤</div>
               <div style={{ position:"absolute", bottom:0, left:0, right:0, height:"60px", background:"linear-gradient(transparent,#0d0d0d)" }}/>
