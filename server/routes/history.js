@@ -2,10 +2,13 @@ const express = require("express");
 const router = express.Router();
 const { createClient } = require("@supabase/supabase-js");
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+const supabase = process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY
+  ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
+  : null;
 
 // GET /api/history  (requires Authorization: Bearer <token>)
 router.get("/", async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: "Database not configured" });
   const token = req.headers.authorization?.replace("Bearer ", "");
   if (!token) return res.status(401).json({ error: "Authorization header required" });
 
@@ -25,6 +28,7 @@ router.get("/", async (req, res) => {
 
 // DELETE /api/history/:id
 router.delete("/:id", async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: "Database not configured" });
   const token = req.headers.authorization?.replace("Bearer ", "");
   if (!token) return res.status(401).json({ error: "Authorization header required" });
 
