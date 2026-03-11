@@ -1,11 +1,12 @@
 {
   "info": {
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
     "name": "SportIQ AI Platform API",
     "description": "Complete test suite for the SportIQ AI-powered sports analysis platform",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:4000", "type": "string" },
+    { "key": "baseUrl", "value": "https://sportiq-voxv.onrender.com", "type": "string" },
     { "key": "token", "value": "", "type": "string", "description": "Supabase JWT token" }
   ],
   "item": [
@@ -18,6 +19,7 @@
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 200', () => pm.response.to.have.status(200));",
                   "pm.test('Status is ok', () => pm.expect(pm.response.json().status).to.eql('ok'));",
@@ -29,7 +31,12 @@
           ],
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/api/health"
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health"]
+            }
           }
         }
       ]
@@ -43,6 +50,7 @@
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 200', () => pm.response.to.have.status(200));",
                   "const json = pm.response.json();",
@@ -57,10 +65,15 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{baseUrl}}/api/analyse",
+            "url": {
+              "raw": "{{baseUrl}}/api/analyse",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analyse"]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"question\": \"Is Mbappe worth his transfer fee?\",\n  \"sport\": \"football\"\n}"
+              "raw": "{\n  \"question\": \"Is Mbappe worth his transfer fee?\",\n  \"sport\": \"football\"\n}",
+              "options": { "raw": { "language": "json" } }
             }
           }
         },
@@ -70,6 +83,7 @@
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 200', () => pm.response.to.have.status(200));",
                   "pm.test('Sport is cricket', () => pm.expect(pm.response.json().sport).to.eql('cricket'));"
@@ -80,10 +94,15 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{baseUrl}}/api/analyse",
+            "url": {
+              "raw": "{{baseUrl}}/api/analyse",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analyse"]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"question\": \"Is Virat Kohli mentally the toughest batter ever?\",\n  \"sport\": \"cricket\"\n}"
+              "raw": "{\n  \"question\": \"Is Virat Kohli mentally the toughest batter ever?\",\n  \"sport\": \"cricket\"\n}",
+              "options": { "raw": { "language": "json" } }
             }
           }
         },
@@ -93,6 +112,7 @@
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 200', () => pm.response.to.have.status(200));",
                   "pm.test('Sport is tennis', () => pm.expect(pm.response.json().sport).to.eql('tennis'));"
@@ -103,10 +123,15 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{baseUrl}}/api/analyse",
+            "url": {
+              "raw": "{{baseUrl}}/api/analyse",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analyse"]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"question\": \"Could peak Federer beat Djokovic on any surface?\",\n  \"sport\": \"tennis\"\n}"
+              "raw": "{\n  \"question\": \"Could peak Federer beat Djokovic on any surface?\",\n  \"sport\": \"tennis\"\n}",
+              "options": { "raw": { "language": "json" } }
             }
           }
         },
@@ -116,6 +141,7 @@
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 400', () => pm.response.to.have.status(400));",
                   "pm.test('Error message present', () => pm.expect(pm.response.json().error).to.include('question'));"
@@ -126,8 +152,16 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{baseUrl}}/api/analyse",
-            "body": { "mode": "raw", "raw": "{\"sport\": \"football\"}" }
+            "url": {
+              "raw": "{{baseUrl}}/api/analyse",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analyse"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"sport\": \"football\"}",
+              "options": { "raw": { "language": "json" } }
+            }
           }
         },
         {
@@ -136,6 +170,7 @@
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 400', () => pm.response.to.have.status(400));",
                   "pm.test('Error mentions sport', () => pm.expect(pm.response.json().error).to.include('sport'));"
@@ -146,8 +181,16 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{baseUrl}}/api/analyse",
-            "body": { "mode": "raw", "raw": "{\"question\": \"Test\", \"sport\": \"basketball\"}" }
+            "url": {
+              "raw": "{{baseUrl}}/api/analyse",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analyse"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"question\": \"Test\", \"sport\": \"basketball\"}",
+              "options": { "raw": { "language": "json" } }
+            }
           }
         }
       ]
@@ -161,6 +204,7 @@
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 200', () => pm.response.to.have.status(200));",
                   "const json = pm.response.json();",
@@ -177,8 +221,16 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{baseUrl}}/api/player",
-            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Lionel Messi\",\n  \"sport\": \"football\"\n}" }
+            "url": {
+              "raw": "{{baseUrl}}/api/player",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "player"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Lionel Messi\",\n  \"sport\": \"football\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
           }
         },
         {
@@ -187,6 +239,7 @@
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 200', () => pm.response.to.have.status(200));",
                   "pm.test('Has player data', () => pm.expect(pm.response.json().name).to.be.a('string'));"
@@ -197,8 +250,16 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{baseUrl}}/api/player",
-            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Virat Kohli\",\n  \"sport\": \"cricket\"\n}" }
+            "url": {
+              "raw": "{{baseUrl}}/api/player",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "player"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Virat Kohli\",\n  \"sport\": \"cricket\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
           }
         },
         {
@@ -207,6 +268,7 @@
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 200', () => pm.response.to.have.status(200));",
                   "const json = pm.response.json();",
@@ -218,7 +280,13 @@
           ],
           "request": {
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/api/player/image?name=Cristiano Ronaldo", "host": ["{{baseUrl}}"], "path": ["api","player","image"], "query": [{"key":"name","value":"Cristiano Ronaldo"}] }
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/player/image?name=Cristiano Ronaldo",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "player", "image"],
+              "query": [{ "key": "name", "value": "Cristiano Ronaldo" }]
+            }
           }
         },
         {
@@ -227,6 +295,7 @@
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 400', () => pm.response.to.have.status(400));",
                   "pm.test('Error mentions name', () => pm.expect(pm.response.json().error).to.include('name'));"
@@ -237,8 +306,16 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{baseUrl}}/api/player",
-            "body": { "mode": "raw", "raw": "{\"sport\": \"football\"}" }
+            "url": {
+              "raw": "{{baseUrl}}/api/player",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "player"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"sport\": \"football\"}",
+              "options": { "raw": { "language": "json" } }
+            }
           }
         },
         {
@@ -247,15 +324,21 @@
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status is 400 or 404', () => pm.expect([400,404]).to.include(pm.response.code));"
+                  "pm.test('Status is 400 or 404', () => pm.expect([400, 404]).to.include(pm.response.code));"
                 ]
               }
             }
           ],
           "request": {
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/api/player/image", "host": ["{{baseUrl}}"], "path": ["api","player","image"] }
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/player/image",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "player", "image"]
+            }
           }
         }
       ]
@@ -269,6 +352,7 @@
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 200', () => pm.response.to.have.status(200));",
                   "const json = pm.response.json();",
@@ -285,8 +369,16 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{baseUrl}}/api/compare",
-            "body": { "mode": "raw", "raw": "{\n  \"player1\": \"Lionel Messi\",\n  \"player2\": \"Cristiano Ronaldo\",\n  \"sport\": \"football\"\n}" }
+            "url": {
+              "raw": "{{baseUrl}}/api/compare",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "compare"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"player1\": \"Lionel Messi\",\n  \"player2\": \"Cristiano Ronaldo\",\n  \"sport\": \"football\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
           }
         },
         {
@@ -295,6 +387,7 @@
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 200', () => pm.response.to.have.status(200));",
                   "pm.test('Has verdict', () => pm.expect(pm.response.json().verdict).to.be.a('string'));"
@@ -305,8 +398,16 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{baseUrl}}/api/compare",
-            "body": { "mode": "raw", "raw": "{\n  \"player1\": \"Virat Kohli\",\n  \"player2\": \"Sachin Tendulkar\",\n  \"sport\": \"cricket\"\n}" }
+            "url": {
+              "raw": "{{baseUrl}}/api/compare",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "compare"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"player1\": \"Virat Kohli\",\n  \"player2\": \"Sachin Tendulkar\",\n  \"sport\": \"cricket\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
           }
         },
         {
@@ -315,6 +416,7 @@
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 400', () => pm.response.to.have.status(400));",
                   "pm.test('Error is descriptive', () => pm.expect(pm.response.json().error).to.be.a('string'));"
@@ -325,8 +427,16 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{baseUrl}}/api/compare",
-            "body": { "mode": "raw", "raw": "{\"player1\": \"Messi\", \"sport\": \"football\"}" }
+            "url": {
+              "raw": "{{baseUrl}}/api/compare",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "compare"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"player1\": \"Messi\", \"sport\": \"football\"}",
+              "options": { "raw": { "language": "json" } }
+            }
           }
         }
       ]
@@ -340,6 +450,7 @@
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 200', () => pm.response.to.have.status(200));",
                   "const json = pm.response.json();",
@@ -355,8 +466,16 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{baseUrl}}/api/timeline",
-            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Cristiano Ronaldo\",\n  \"sport\": \"football\"\n}" }
+            "url": {
+              "raw": "{{baseUrl}}/api/timeline",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "timeline"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Cristiano Ronaldo\",\n  \"sport\": \"football\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
           }
         },
         {
@@ -365,6 +484,7 @@
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 200', () => pm.response.to.have.status(200));",
                   "pm.test('Has events', () => pm.expect(pm.response.json().events).to.be.an('array').and.not.empty);"
@@ -375,8 +495,16 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{baseUrl}}/api/timeline",
-            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Sachin Tendulkar\",\n  \"sport\": \"cricket\"\n}" }
+            "url": {
+              "raw": "{{baseUrl}}/api/timeline",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "timeline"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sachin Tendulkar\",\n  \"sport\": \"cricket\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
           }
         },
         {
@@ -385,6 +513,7 @@
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 400', () => pm.response.to.have.status(400));"
                 ]
@@ -394,8 +523,16 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": "{{baseUrl}}/api/timeline",
-            "body": { "mode": "raw", "raw": "{\"sport\": \"cricket\"}" }
+            "url": {
+              "raw": "{{baseUrl}}/api/timeline",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "timeline"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"sport\": \"cricket\"}",
+              "options": { "raw": { "language": "json" } }
+            }
           }
         }
       ]
@@ -409,6 +546,7 @@
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 200', () => pm.response.to.have.status(200));",
                   "const json = pm.response.json();",
@@ -422,7 +560,11 @@
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-            "url": "{{baseUrl}}/api/history"
+            "url": {
+              "raw": "{{baseUrl}}/api/history",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "history"]
+            }
           }
         },
         {
@@ -431,6 +573,7 @@
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 401', () => pm.response.to.have.status(401));",
                   "pm.test('Error mentions authorization', () => pm.expect(pm.response.json().error).to.include('Authorization'));"
@@ -440,7 +583,12 @@
           ],
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/api/history"
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/history",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "history"]
+            }
           }
         },
         {
@@ -449,6 +597,7 @@
             {
               "listen": "test",
               "script": {
+                "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 401', () => pm.response.to.have.status(401));"
                 ]
@@ -458,7 +607,11 @@
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer invalid_token_here" }],
-            "url": "{{baseUrl}}/api/history"
+            "url": {
+              "raw": "{{baseUrl}}/api/history",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "history"]
+            }
           }
         }
       ]
