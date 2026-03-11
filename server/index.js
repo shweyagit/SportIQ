@@ -16,6 +16,9 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDoc, {
   customSiteTitle: "SportIQ API Docs"
 }));
 
+// ── Serve raw swagger spec for Postman import ─────────────────────────────────
+app.get("/swagger.json", (req, res) => res.json(swaggerDoc));
+
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use("/api/analyse",  require("./routes/analyse"));
 app.use("/api/player",   require("./routes/player"));
