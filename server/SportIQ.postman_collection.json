@@ -1,0 +1,467 @@
+{
+  "info": {
+    "name": "SportIQ AI Platform API",
+    "description": "Complete test suite for the SportIQ AI-powered sports analysis platform",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000", "type": "string" },
+    { "key": "token", "value": "", "type": "string", "description": "Supabase JWT token" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is ok', () => pm.expect(pm.response.json().status).to.eql('ok'));",
+                  "pm.test('Service name is correct', () => pm.expect(pm.response.json().service).to.eql('SportIQ API'));",
+                  "pm.test('Response time < 500ms', () => pm.expect(pm.response.responseTime).to.be.below(500));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analyse",
+      "item": [
+        {
+          "name": "Dual Analyst - Football",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Has analystA response', () => pm.expect(json.analystA).to.be.a('string').and.not.empty);",
+                  "pm.test('Has analystB response', () => pm.expect(json.analystB).to.be.a('string').and.not.empty);",
+                  "pm.test('Sport matches request', () => pm.expect(json.sport).to.eql('football'));",
+                  "pm.test('Question echoed back', () => pm.expect(json.question).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/analyse",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"Is Mbappe worth his transfer fee?\",\n  \"sport\": \"football\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Dual Analyst - Cricket",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Sport is cricket', () => pm.expect(pm.response.json().sport).to.eql('cricket'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/analyse",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"Is Virat Kohli mentally the toughest batter ever?\",\n  \"sport\": \"cricket\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Dual Analyst - Tennis",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Sport is tennis', () => pm.expect(pm.response.json().sport).to.eql('tennis'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/analyse",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"Could peak Federer beat Djokovic on any surface?\",\n  \"sport\": \"tennis\"\n}"
+            }
+          }
+        },
+        {
+          "name": "[Negative] Missing question field",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error message present', () => pm.expect(pm.response.json().error).to.include('question'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/analyse",
+            "body": { "mode": "raw", "raw": "{\"sport\": \"football\"}" }
+          }
+        },
+        {
+          "name": "[Negative] Invalid sport",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error mentions sport', () => pm.expect(pm.response.json().error).to.include('sport'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/analyse",
+            "body": { "mode": "raw", "raw": "{\"question\": \"Test\", \"sport\": \"basketball\"}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Player",
+      "item": [
+        {
+          "name": "Player Profile - Messi",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Has player name', () => pm.expect(json.name).to.be.a('string').and.not.empty);",
+                  "pm.test('Has nationality', () => pm.expect(json.nationality).to.be.a('string'));",
+                  "pm.test('Has achievements array', () => pm.expect(json.achievements).to.be.an('array').and.not.empty);",
+                  "pm.test('Has key stats array', () => pm.expect(json.keyStats).to.be.an('array'));",
+                  "pm.test('Has career summary', () => pm.expect(json.careerSummary).to.be.a('string').and.not.empty);",
+                  "pm.test('Has legacy quote', () => pm.expect(json.legacyQuote).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/player",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Lionel Messi\",\n  \"sport\": \"football\"\n}" }
+          }
+        },
+        {
+          "name": "Player Profile - Virat Kohli",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has player data', () => pm.expect(pm.response.json().name).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/player",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Virat Kohli\",\n  \"sport\": \"cricket\"\n}" }
+          }
+        },
+        {
+          "name": "Player Image - Cristiano Ronaldo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Image URL returned', () => pm.expect(json.image).to.be.a('string'));",
+                  "pm.test('Image is a valid URL', () => pm.expect(json.image).to.match(/^https?:\\/\\//));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/player/image?name=Cristiano Ronaldo", "host": ["{{baseUrl}}"], "path": ["api","player","image"], "query": [{"key":"name","value":"Cristiano Ronaldo"}] }
+          }
+        },
+        {
+          "name": "[Negative] Missing name",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error mentions name', () => pm.expect(pm.response.json().error).to.include('name'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/player",
+            "body": { "mode": "raw", "raw": "{\"sport\": \"football\"}" }
+          }
+        },
+        {
+          "name": "[Negative] Image not found",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 or 404', () => pm.expect([400,404]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/player/image", "host": ["{{baseUrl}}"], "path": ["api","player","image"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Compare",
+      "item": [
+        {
+          "name": "Head to Head - Messi vs Ronaldo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Has player1 data', () => pm.expect(json.player1).to.be.an('object'));",
+                  "pm.test('Has player2 data', () => pm.expect(json.player2).to.be.an('object'));",
+                  "pm.test('Has verdict', () => pm.expect(json.verdict).to.be.a('string').and.not.empty);",
+                  "pm.test('Has winner', () => pm.expect(json.winner).to.be.a('string').and.not.empty);",
+                  "pm.test('Player1 has rating', () => pm.expect(json.player1.rating).to.match(/\\d+\\/10/));",
+                  "pm.test('Player1 has strengths', () => pm.expect(json.player1.strengths).to.be.an('array').and.not.empty);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/compare",
+            "body": { "mode": "raw", "raw": "{\n  \"player1\": \"Lionel Messi\",\n  \"player2\": \"Cristiano Ronaldo\",\n  \"sport\": \"football\"\n}" }
+          }
+        },
+        {
+          "name": "Head to Head - Kohli vs Tendulkar",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has verdict', () => pm.expect(pm.response.json().verdict).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/compare",
+            "body": { "mode": "raw", "raw": "{\n  \"player1\": \"Virat Kohli\",\n  \"player2\": \"Sachin Tendulkar\",\n  \"sport\": \"cricket\"\n}" }
+          }
+        },
+        {
+          "name": "[Negative] Missing player2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error is descriptive', () => pm.expect(pm.response.json().error).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/compare",
+            "body": { "mode": "raw", "raw": "{\"player1\": \"Messi\", \"sport\": \"football\"}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Timeline",
+      "item": [
+        {
+          "name": "Career Timeline - Cristiano Ronaldo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Has player name', () => pm.expect(json.name).to.be.a('string'));",
+                  "pm.test('Has events array', () => pm.expect(json.events).to.be.an('array'));",
+                  "pm.test('Has at least 5 events', () => pm.expect(json.events.length).to.be.at.least(5));",
+                  "pm.test('Each event has year', () => json.events.forEach(e => pm.expect(e.year).to.match(/\\d{4}/)));",
+                  "pm.test('Each event has type', () => json.events.forEach(e => pm.expect(['debut','transfer','trophy','milestone','retirement']).to.include(e.type)));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/timeline",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Cristiano Ronaldo\",\n  \"sport\": \"football\"\n}" }
+          }
+        },
+        {
+          "name": "Career Timeline - Sachin Tendulkar",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has events', () => pm.expect(pm.response.json().events).to.be.an('array').and.not.empty);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/timeline",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Sachin Tendulkar\",\n  \"sport\": \"cricket\"\n}" }
+          }
+        },
+        {
+          "name": "[Negative] Missing name",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/timeline",
+            "body": { "mode": "raw", "raw": "{\"sport\": \"cricket\"}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "History (Auth Required)",
+      "item": [
+        {
+          "name": "Get Search History",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Has searches array', () => pm.expect(json.searches).to.be.an('array'));",
+                  "pm.test('Has count', () => pm.expect(json.count).to.be.a('number'));",
+                  "pm.test('Count matches array length', () => pm.expect(json.count).to.eql(json.searches.length));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/history"
+          }
+        },
+        {
+          "name": "[Negative] No auth token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 401', () => pm.response.to.have.status(401));",
+                  "pm.test('Error mentions authorization', () => pm.expect(pm.response.json().error).to.include('Authorization'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/history"
+          }
+        },
+        {
+          "name": "[Negative] Invalid token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer invalid_token_here" }],
+            "url": "{{baseUrl}}/api/history"
+          }
+        }
+      ]
+    }
+  ]
+}

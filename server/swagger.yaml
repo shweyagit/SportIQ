@@ -1,0 +1,544 @@
+openapi: 3.0.3
+info:
+  title: SportIQ AI Platform API
+  description: |
+    REST API for the SportIQ AI-powered multi-sport analysis platform.
+    Powered by Claude (Anthropic) for intelligent sports insights.
+
+    ## Authentication
+    Protected endpoints require a Supabase JWT token in the `Authorization` header:
+    ```
+    Authorization: Bearer <your_supabase_token>
+    ```
+  version: 1.0.0
+  contact:
+    name: SportIQ API Support
+
+servers:
+  - url: http://localhost:4000
+    description: Local development server
+
+tags:
+  - name: Health
+    description: API health check
+  - name: Analyse
+    description: AI-powered dual analyst debate
+  - name: Player
+    description: Player profile and image lookup
+  - name: Compare
+    description: Head-to-head player comparison
+  - name: Timeline
+    description: Career timeline generation
+  - name: History
+    description: User search history (requires auth)
+
+paths:
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Health check
+      description: Returns API status and timestamp
+      responses:
+        "200":
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: ok
+                service: SportIQ API
+                version: 1.0.0
+                timestamp: "2026-03-11T10:00:00.000Z"
+
+  /api/analyse:
+    post:
+      tags: [Analyse]
+      summary: Dual analyst debate
+      description: |
+        Sends a sports question to two AI analysts with different perspectives.
+        Analyst A focuses on tactics/technique, Analyst B focuses on data/stats.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalyseRequest"
+            examples:
+              football:
+                summary: Football question
+                value:
+                  question: "Is Mbappe worth his transfer fee?"
+                  sport: football
+              cricket:
+                summary: Cricket question
+                value:
+                  question: "Is Virat Kohli mentally the toughest batter ever?"
+                  sport: cricket
+              tennis:
+                summary: Tennis question
+                value:
+                  question: "Could peak Federer beat Djokovic on any surface?"
+                  sport: tennis
+      responses:
+        "200":
+          description: Dual analyst responses
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyseResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "502":
+          $ref: "#/components/responses/ClaudeError"
+
+  /api/player:
+    post:
+      tags: [Player]
+      summary: Get player profile
+      description: Returns a structured AI-generated player profile with career summary, achievements, stats and legacy.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerRequest"
+            examples:
+              messi:
+                summary: Lionel Messi
+                value:
+                  name: Lionel Messi
+                  sport: football
+              kohli:
+                summary: Virat Kohli
+                value:
+                  name: Virat Kohli
+                  sport: cricket
+              federer:
+                summary: Roger Federer
+                value:
+                  name: Roger Federer
+                  sport: tennis
+      responses:
+        "200":
+          description: Player profile with image
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "502":
+          $ref: "#/components/responses/ClaudeError"
+
+  /api/player/image:
+    get:
+      tags: [Player]
+      summary: Get player image
+      description: Fetches a player image from Wikipedia or TheSportsDB.
+      parameters:
+        - in: query
+          name: name
+          required: true
+          schema:
+            type: string
+          description: Full player name
+          example: Cristiano Ronaldo
+      responses:
+        "200":
+          description: Player image URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: No image found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/compare:
+    post:
+      tags: [Compare]
+      summary: Head-to-head comparison
+      description: Compares two players with strengths, weaknesses, ratings and a verdict.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompareRequest"
+            examples:
+              football:
+                summary: Messi vs Ronaldo
+                value:
+                  player1: Lionel Messi
+                  player2: Cristiano Ronaldo
+                  sport: football
+              cricket:
+                summary: Kohli vs Tendulkar
+                value:
+                  player1: Virat Kohli
+                  player2: Sachin Tendulkar
+                  sport: cricket
+      responses:
+        "200":
+          description: Comparison result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompareResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "502":
+          $ref: "#/components/responses/ClaudeError"
+
+  /api/timeline:
+    post:
+      tags: [Timeline]
+      summary: Career timeline
+      description: Generates a chronological career timeline with key events for a player.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TimelineRequest"
+            examples:
+              ronaldo:
+                summary: Cristiano Ronaldo
+                value:
+                  name: Cristiano Ronaldo
+                  sport: football
+              tendulkar:
+                summary: Sachin Tendulkar
+                value:
+                  name: Sachin Tendulkar
+                  sport: cricket
+      responses:
+        "200":
+          description: Career timeline
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimelineResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "502":
+          $ref: "#/components/responses/ClaudeError"
+
+  /api/history:
+    get:
+      tags: [History]
+      summary: Get user search history
+      description: Returns the last 30 searches for the authenticated user.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Search history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HistoryResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/history/{id}:
+    delete:
+      tags: [History]
+      summary: Delete a saved search
+      description: Deletes a specific search entry by ID for the authenticated user.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Search entry UUID
+      responses:
+        "200":
+          description: Deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Search deleted successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Supabase JWT token
+
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        service:
+          type: string
+          example: SportIQ API
+        version:
+          type: string
+          example: 1.0.0
+        timestamp:
+          type: string
+          format: date-time
+
+    AnalyseRequest:
+      type: object
+      required: [question]
+      properties:
+        question:
+          type: string
+          description: The sports question to debate
+          example: Is Mbappe worth his transfer fee?
+        sport:
+          type: string
+          enum: [football, cricket, tennis]
+          default: football
+
+    AnalyseResponse:
+      type: object
+      properties:
+        question:
+          type: string
+        sport:
+          type: string
+        analystA:
+          type: string
+          description: Tactical/technique analyst perspective
+        analystB:
+          type: string
+          description: Data/stats analyst perspective
+
+    PlayerRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: Lionel Messi
+        sport:
+          type: string
+          enum: [football, cricket, tennis]
+          default: football
+
+    PlayerResponse:
+      type: object
+      properties:
+        name:
+          type: string
+        nationality:
+          type: string
+        position:
+          type: string
+        currentTeam:
+          type: string
+        age:
+          type: string
+        careerSummary:
+          type: string
+        achievements:
+          type: array
+          items:
+            type: string
+        keyStats:
+          type: array
+          items:
+            type: string
+        legacyQuote:
+          type: string
+        image:
+          type: string
+          format: uri
+          nullable: true
+
+    ImageResponse:
+      type: object
+      properties:
+        name:
+          type: string
+        image:
+          type: string
+          format: uri
+
+    CompareRequest:
+      type: object
+      required: [player1, player2]
+      properties:
+        player1:
+          type: string
+          example: Lionel Messi
+        player2:
+          type: string
+          example: Cristiano Ronaldo
+        sport:
+          type: string
+          enum: [football, cricket, tennis]
+          default: football
+
+    PlayerComparison:
+      type: object
+      properties:
+        name:
+          type: string
+        strengths:
+          type: array
+          items:
+            type: string
+        weaknesses:
+          type: array
+          items:
+            type: string
+        rating:
+          type: string
+          example: 9/10
+        summary:
+          type: string
+
+    CompareResponse:
+      type: object
+      properties:
+        sport:
+          type: string
+        player1:
+          $ref: "#/components/schemas/PlayerComparison"
+        player2:
+          $ref: "#/components/schemas/PlayerComparison"
+        verdict:
+          type: string
+        winner:
+          type: string
+
+    TimelineRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: Cristiano Ronaldo
+        sport:
+          type: string
+          enum: [football, cricket, tennis]
+          default: football
+
+    TimelineEvent:
+      type: object
+      properties:
+        year:
+          type: string
+          example: "2003"
+        event:
+          type: string
+        type:
+          type: string
+          enum: [debut, transfer, trophy, milestone, retirement]
+
+    TimelineResponse:
+      type: object
+      properties:
+        sport:
+          type: string
+        name:
+          type: string
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimelineEvent"
+
+    SearchEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        sport:
+          type: string
+        feature:
+          type: string
+        query:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    HistoryResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        count:
+          type: integer
+        searches:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchEntry"
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        detail:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Missing or invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: question is required
+
+    Unauthorized:
+      description: Missing or invalid auth token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: Authorization header required
+
+    ClaudeError:
+      description: Claude API error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: Failed to reach Claude API
+            detail: Claude API error 429
+
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
