@@ -6,20 +6,20 @@ const SPORTS = {
   football: {
     label: "Football", emoji: "⚽", color: "#00ff87",
     suggestions: ["Is Mbappe worth his transfer fee?", "Messi or Ronaldo GOAT?", "Is Tiki-Taka dead?", "Will Arsenal win the PL?", "Best manager of the decade?"],
-    analystA: { name: "ALEX", role: "Tactical Analyst", accent: "#00ff87", bg: "#0a1a12", persona: "You are Marco, a sharp tactical football analyst. Focus on formations, pressing systems, positional play, tactical patterns. Reference managers like Guardiola, Klopp, Ancelotti. Be confident, analytical, opinionated. Max 4 sentences." },
-    analystB: { name: "PEP", role: "Data & Stats", accent: "#ff6b35", bg: "#1a0f0a", persona: "You are Sofia, a data-driven football analyst. Focus on xG, statistics, player metrics, historical data. Challenge conventional wisdom with numbers. Be precise, contrarian. Max 4 sentences." },
+    analystA: { Role: "Tactical Analyst", accent: "#00ff87", bg: "#0a1a12", persona: "A sharp tactical football analyst. Focus on formations, pressing systems, positional play, tactical patterns. Reference managers like Guardiola, Klopp, Ancelotti. Be confident, analytical, opinionated. Max 4 sentences." },
+    analystB: { Role: "Data & Stats", accent: "#ff6b35", bg: "#1a0f0a", persona: "A data-driven football analyst. Focus on xG, statistics, player metrics, historical data. Challenge conventional wisdom with numbers. Be precise, contrarian. Max 4 sentences." },
   },
   cricket: {
     label: "Cricket", emoji: "🏏", color: "#4fc3f7",
     suggestions: ["Kohli or Tendulkar — who is greater?", "Is Test cricket dying?", "Best T20 team of all time?", "Can England win the next Ashes?", "Greatest ODI innings ever?"],
-    analystA: { name: "ANDY", role: "Technique Analyst", accent: "#4fc3f7", bg: "#0a1218", persona: "You are Ravi, a cricket technique analyst. Focus on batting technique, bowling actions, footwork, shot selection, pitch reading. Reference legends like Tendulkar, Lara, McGrath. Be insightful and technical. Max 4 sentences." },
-    analystB: { name: "GARY", role: "Stats & Strategy", accent: "#e040fb", bg: "#140a18", persona: "You are Priya, a cricket statistician and strategist. Focus on batting averages, strike rates, bowling economy, match situations, team selection strategy. Use data to challenge popular opinions. Max 4 sentences." },
+    analystA: { Role: "Technique Analyst", accent: "#4fc3f7", bg: "#0a1218", persona: "A cricket technique analyst. Focus on batting technique, bowling actions, footwork, shot selection, pitch reading. Reference legends like Tendulkar, Lara, McGrath. Be insightful and technical. Max 4 sentences." },
+    analystB: { Role: "Stats & Strategy", accent: "#e040fb", bg: "#140a18", persona: "A cricket statistician and strategist. Focus on batting averages, strike rates, bowling economy, match situations, team selection strategy. Use data to challenge popular opinions. Max 4 sentences." },
   },
   tennis: {
     label: "Tennis", emoji: "🎾", color: "#ffd700",
     suggestions: ["Federer, Nadal or Djokovic — the GOAT?", "Is Sinner the future of tennis?", "Best serve in history?", "Will anyone break Djokovic's Slam record?", "Clay vs Grass — hardest surface?"],
-    analystA: { name: "Marián", role: "Game Analyst", accent: "#ffd700", bg: "#181200", persona: "You are Alex, a tennis game analyst. Focus on playing styles, court tactics, serve-return patterns, mental game, surface adaptation. Reference Federer, Nadal, Djokovic techniques. Be precise and tactical. Max 4 sentences." },
-    analystB: { name: "PATRICK", role: "Stats & History", accent: "#ff4081", bg: "#180008", persona: "You are Diana, a tennis historian and statistician. Focus on Slam records, head-to-head stats, ranking history, era comparisons. Use historical data to back arguments. Be opinionated and evidence-driven. Max 4 sentences." },
+    analystA: { Role: "Game Analyst", accent: "#ffd700", bg: "#181200", persona: "A tennis game analyst. Focus on playing styles, court tactics, serve-return patterns, mental game, surface adaptation. Reference Federer, Nadal, Djokovic techniques. Be precise and tactical. Max 4 sentences." },
+    analystB: { Role: "Stats & History", accent: "#ff4081", bg: "#180008", persona: "A tennis historian and statistician. Focus on Slam records, head-to-head stats, ranking history, era comparisons. Use historical data to back arguments. Be opinionated and evidence-driven. Max 4 sentences." },
   }
 };
 
@@ -42,14 +42,20 @@ async function askClaude(prompt, systemPrompt) {
     })
   });
   const data = await res.json();
-  console.log("API Response:", data); // 👈 add this
+  console.log("API Response:", data);
   return data.content[0].text;
 }
+
 async function getPlayerImage(name) {
   try {
     const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(name)}`);
     const data = await res.json();
-    return data.thumbnail?.source || null;
+    console.log("Wiki image data:", data.title, data.thumbnail, data.originalimage);
+    // Prefer originalimage (full res, no URL hacking needed), fall back to upscaled thumbnail
+    if (data.originalimage?.source) return data.originalimage.source;
+    const thumb = data.thumbnail?.source;
+    if (!thumb) return null;
+    return thumb.replace(/\/\d+px-/, "/400px-");
   } catch { return null; }
 }
 
@@ -57,47 +63,22 @@ async function getPlayerImage(name) {
 
 function LoadDots({ color }) {
   return (
-    <div style={{ display: "flex", gap: "5px", padding: "10px 0" }}>
-      {[0,1,2].map(i => <div key={i} style={{ width:"6px", height:"6px", borderRadius:"50%", background:color, animation:`pulse 1.2s ease-in-out ${i*0.2}s infinite` }}/>)}
+    <div style={{ display: "flex", gap: "6px", padding: "12px 0" }}>
+      {[0,1,2].map(i => <div key={i} style={{ width:"7px", height:"7px", borderRadius:"50%", background:color, animation:`pulse 1.2s ease-in-out ${i*0.2}s infinite` }}/>)}
     </div>
   );
 }
 
 function PlayerAvatar({ image, name, size=80 }) {
-  return image
-    ? <img src={image} alt={name} style={{ width:size, height:size, objectFit:"cover", borderRadius:"2px", display:"block" }}/>
-    : <div style={{ width:size, height:size, background:"#111", borderRadius:"2px", display:"flex", alignItems:"center", justifyContent:"center", fontSize:size*0.38, color:"#333" }}>👤</div>;
+  const [err, setErr] = useState(false);
+  return (!image || err)
+    ? <div style={{ width:size, height:size, background:"#111", borderRadius:"4px", border:"1px solid #1f1f1f", display:"flex", alignItems:"center", justifyContent:"center", fontSize:size*0.38, color:"#333", flexShrink:0 }}>👤</div>
+    : <img src={image} alt={name} onError={() => setErr(true)} style={{ width:size, height:size, objectFit:"cover", objectPosition:"top", borderRadius:"4px", display:"block", flexShrink:0 }}/>;
 }
 
-function NavTab({ label, active, onClick }) {
-  return (
-    <button onClick={onClick} style={{ background:"none", border:"none", fontFamily:"'Space Mono',monospace", fontSize:"10px", letterSpacing:"2px", color:active?"#fff":"#444", borderBottom:active?"1px solid #fff":"1px solid transparent", padding:"10px 0", marginRight:"26px", cursor:"pointer", transition:"all 0.2s" }}>{label}</button>
-  );
-}
-
-const L = { fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#333", letterSpacing:"3px", marginBottom:"10px" };
-const SB = (color) => ({ background:color||"#fff", border:"none", padding:"14px 24px", color:"#000", fontFamily:"'Space Mono',monospace", fontSize:"10px", letterSpacing:"2px", fontWeight:"700", cursor:"pointer", whiteSpace:"nowrap" });
-const IS = { background:"#0e0e0e", border:"1px solid #1f1f1f", borderRadius:"2px", padding:"14px 18px", color:"#fff", fontFamily:"'DM Sans',sans-serif", fontSize:"14px", outline:"none" };
-
-// ─── SPORT SELECTOR ──────────────────────────────────────────────────────────
-
-function SportSelector({ selected, onChange }) {
-  return (
-    <div style={{ display:"flex", gap:"10px", marginBottom:"28px" }}>
-      {Object.entries(SPORTS).map(([key, sport]) => (
-        <button key={key} onClick={() => onChange(key)} style={{
-          background: selected===key ? sport.color+"18" : "transparent",
-          border: `1px solid ${selected===key ? sport.color+"66" : "#1f1f1f"}`,
-          borderRadius:"2px", padding:"10px 20px", cursor:"pointer",
-          transition:"all 0.2s", display:"flex", alignItems:"center", gap:"8px"
-        }}>
-          <span style={{ fontSize:"18px" }}>{sport.emoji}</span>
-          <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"10px", letterSpacing:"2px", color: selected===key ? sport.color : "#444" }}>{sport.label.toUpperCase()}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
+const L = { fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#333", letterSpacing:"3px", marginBottom:"12px", textTransform:"uppercase" };
+const SB = (color) => ({ background:color||"#fff", border:"none", padding:"14px 26px", color:"#000", fontFamily:"'Space Mono',monospace", fontSize:"10px", letterSpacing:"2px", fontWeight:"700", cursor:"pointer", whiteSpace:"nowrap", borderRadius:"0 4px 4px 0", transition:"opacity 0.2s" });
+const IS = { background:"#0e0e0e", border:"1px solid #1f1f1f", borderRadius:"4px", padding:"14px 18px", color:"#fff", fontFamily:"'DM Sans',sans-serif", fontSize:"14px", outline:"none" };
 
 // ─── DUAL ANALYST ────────────────────────────────────────────────────────────
 
@@ -120,26 +101,38 @@ function DualAnalyst({ sport }) {
 
   return (
     <div>
-      <div style={L}>ASK THE ANALYSTS</div>
-      <div style={{ display:"flex", border:"1px solid #1f1f1f", borderRadius:"2px", overflow:"hidden", marginBottom:"12px" }}>
-        <input value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==="Enter"&&ask()} placeholder={`Ask anything about ${sport.label.toLowerCase()}...`} style={{ flex:1, background:"#0e0e0e", border:"none", padding:"14px 18px", color:"#fff", fontFamily:"'DM Sans',sans-serif", fontSize:"14px", outline:"none" }}/>
+      <div style={L}>Ask the Analysts</div>
+      <div style={{ display:"flex", border:"1px solid #1f1f1f", borderRadius:"4px", overflow:"hidden", marginBottom:"12px" }}>
+        <input value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==="Enter"&&ask()} placeholder={`Ask anything about ${sport.label.toLowerCase()}...`} style={{ flex:1, background:"#0e0e0e", border:"none", padding:"14px 18px", color:"#fff", fontFamily:"'DM Sans',sans-serif", fontSize:"14px", outline:"none", borderRadius:"4px 0 0 4px" }}/>
         <button onClick={()=>ask()} style={SB(color)}>ANALYSE →</button>
       </div>
-      <div style={{ display:"flex", gap:"8px", marginBottom:"24px", flexWrap:"wrap" }}>
-        {suggestions.map((s,i) => <button key={i} onClick={()=>ask(s)} style={{ background:"transparent", border:"1px solid #1a1a1a", borderRadius:"2px", padding:"5px 10px", color:"#444", fontFamily:"'DM Sans',sans-serif", fontSize:"11px", cursor:"pointer" }}>{s}</button>)}
+      <div style={{ display:"flex", gap:"8px", marginBottom:"28px", flexWrap:"wrap" }}>
+        {suggestions.map((s,i) => (
+          <button key={i} onClick={()=>ask(s)} style={{ background:"transparent", border:"1px solid #1a1a1a", borderRadius:"20px", padding:"6px 14px", color:"#555", fontFamily:"'DM Sans',sans-serif", fontSize:"11px", cursor:"pointer", transition:"all 0.2s" }}>{s}</button>
+        ))}
       </div>
-      <div style={{ display:"flex", gap:"14px", marginBottom:"24px" }}>
+      <div style={{ display:"flex", gap:"16px", marginBottom:"28px" }}>
         {[{a:aA,r:rA,l:lA,side:"left"},{a:aB,r:rB,l:lB,side:"right"}].map(({a,r,l,side}) => (
-          <div key={a.name} style={{ flex:1, background:a.bg, border:`1px solid ${a.accent}18`, borderRadius:"2px", padding:"22px", position:"relative", minHeight:"220px", display:"flex", flexDirection:"column" }}>
-            <div style={{ position:"absolute", top:0, [side==="left"?"left":"right"]:0, width:"2px", height:"100%", background:a.accent }}/>
-            <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"26px", color:a.accent, letterSpacing:"4px" }}>{a.name}</div>
-            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:a.accent+"77", letterSpacing:"2px", marginBottom:"12px" }}>{a.role}</div>
-            <div style={{ height:"1px", background:`linear-gradient(90deg,${a.accent}33,transparent)`, marginBottom:"14px" }}/>
-            {l ? <LoadDots color={a.accent}/> : r ? <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", lineHeight:"1.8", color:"#ccc", margin:0 }}>{r}</p> : <p style={{ fontFamily:"'Space Mono',monospace", fontSize:"10px", color:a.accent+"22", margin:0 }}>AWAITING QUERY...</p>}
+          <div key={a.Role} style={{ flex:1, background:a.bg, border:`1px solid ${a.accent}22`, borderRadius:"8px", padding:"24px", position:"relative", minHeight:"240px", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+            <div style={{ position:"absolute", top:0, left:0, right:0, height:"2px", background:`linear-gradient(90deg,${a.accent},${a.accent}00)` }}/>
+            <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"28px", color:a.accent, letterSpacing:"4px" }}>{a.Role}</div>
+            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:a.accent+"77", letterSpacing:"2px", marginBottom:"14px" }}>ANALYST</div>
+            <div style={{ height:"1px", background:`linear-gradient(90deg,${a.accent}33,transparent)`, marginBottom:"16px" }}/>
+            {l ? <LoadDots color={a.accent}/> : r ? <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", lineHeight:"1.9", color:"#ccc", margin:0 }}>{r}</p> : <p style={{ fontFamily:"'Space Mono',monospace", fontSize:"10px", color:a.accent+"22", margin:0 }}>AWAITING QUERY...</p>}
           </div>
         ))}
       </div>
-      {hist.length>0 && <div><div style={L}>RECENT QUERIES</div>{hist.map((h,i) => <div key={i} onClick={()=>ask(h.question)} style={{ display:"flex", justifyContent:"space-between", padding:"9px 12px", background:"#0c0c0c", border:"1px solid #161616", borderRadius:"2px", marginBottom:"5px", cursor:"pointer" }}><span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:"#555" }}>{h.question}</span><span style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#333" }}>{h.time}</span></div>)}</div>}
+      {hist.length>0 && (
+        <div>
+          <div style={L}>Recent Queries</div>
+          {hist.map((h,i) => (
+            <div key={i} onClick={()=>ask(h.question)} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 16px", background:"#0c0c0c", border:"1px solid #161616", borderRadius:"6px", marginBottom:"6px", cursor:"pointer", transition:"border-color 0.2s" }}>
+              <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:"#555" }}>{h.question}</span>
+              <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#2a2a2a" }}>{h.time}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -154,49 +147,69 @@ function PlayerProfile({ sport }) {
   const search = async () => {
     if (!s.trim()) return; setLoading(true); setProfile(null); setImage(null);
     try {
-      const [img, data] = await Promise.all([
-        getPlayerImage(s),
-        askClaude(`Profile of ${s} as a ${label} player.`, `You are a ${label} encyclopedia. Respond ONLY with raw JSON (no markdown, no backticks): {"name":"full name","nationality":"country","position":"position or role","currentTeam":"current team or retired","age":"age","careerSummary":"2-3 sentence summary","achievements":["a1","a2","a3","a4"],"keyStats":["s1","s2","s3"],"legacyQuote":"one punchy sentence on legacy"}`)
-      ]);
+      const data = await askClaude(`Profile of ${s} as a ${label} player.`, `You are a ${label} encyclopedia. Respond ONLY with raw JSON (no markdown, no backticks): {"name":"full name","nationality":"country","position":"position or role","currentTeam":"current team or retired","age":"age","careerSummary":"2-3 sentence summary","achievements":["a1","a2","a3","a4"],"keyStats":["s1","s2","s3"],"legacyQuote":"one punchy sentence on legacy"}`);
+      const parsed = JSON.parse(data.replace(/```json|```/g,"").trim());
+      setProfile(parsed);
+      // Use the canonical full name Claude returned for a more accurate Wikipedia lookup
+      const img = await getPlayerImage(parsed.name);
       setImage(img);
-      setProfile(JSON.parse(data.replace(/```json|```/g,"").trim()));
     } catch { setProfile({error:"Could not load profile."}); }
     setLoading(false);
   };
 
   return (
     <div>
-      <div style={L}>SEARCH {label.toUpperCase()} PLAYER</div>
-      <div style={{ display:"flex", border:"1px solid #1f1f1f", borderRadius:"2px", overflow:"hidden", marginBottom:"28px" }}>
+      <div style={L}>Search {label} Player</div>
+      <div style={{ display:"flex", border:"1px solid #1f1f1f", borderRadius:"4px", overflow:"hidden", marginBottom:"32px" }}>
         <input value={s} onChange={e=>setS(e.target.value)} onKeyDown={e=>e.key==="Enter"&&search()} placeholder={`e.g. ${label==="Cricket"?"Virat Kohli":label==="Tennis"?"Roger Federer":"Lionel Messi"}`} style={{ flex:1, background:"#0e0e0e", border:"none", padding:"14px 18px", color:"#fff", fontFamily:"'DM Sans',sans-serif", fontSize:"14px", outline:"none" }}/>
         <button onClick={search} style={SB(color)}>SEARCH →</button>
       </div>
       {loading && <LoadDots color={color}/>}
       {profile&&!profile.error&&(
         <div style={{ animation:"fadeIn 0.4s ease" }}>
-          <div style={{ display:"flex", gap:"22px", marginBottom:"22px", background:"#0d0d0d", border:"1px solid #1a1a1a", borderRadius:"2px", padding:"22px" }}>
-            <PlayerAvatar image={image} name={profile.name} size={96}/>
-            <div style={{ flex:1 }}>
-              <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"32px", color:"#fff", letterSpacing:"3px", lineHeight:1 }}>{profile.name}</div>
-              <div style={{ display:"flex", gap:"10px", marginTop:"8px", flexWrap:"wrap" }}>
-                {[profile.nationality,profile.position,profile.currentTeam,`Age: ${profile.age}`].map((item,i) => <span key={i} style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#555", letterSpacing:"1px", background:"#111", padding:"4px 8px", borderRadius:"2px" }}>{item}</span>)}
+          <div style={{ display:"flex", gap:"0", marginBottom:"20px", background:"#0d0d0d", border:"1px solid #1a1a1a", borderRadius:"10px", overflow:"hidden" }}>
+            {/* Large photo panel */}
+            <div style={{ width:"180px", flexShrink:0, background:"#0a0a0a", position:"relative" }}>
+              {image
+                ? <img src={image} alt={profile.name} onError={e => { e.target.style.display="none"; e.target.nextElementSibling.style.display="flex"; }} style={{ width:"100%", height:"100%", minHeight:"220px", objectFit:"cover", objectPosition:"top", display:"block" }}/>
+                : null}
+              <div style={{ display: image ? "none" : "flex", width:"100%", minHeight:"220px", alignItems:"center", justifyContent:"center", fontSize:"52px", color:"#1f1f1f" }}>👤</div>
+              <div style={{ position:"absolute", bottom:0, left:0, right:0, height:"60px", background:"linear-gradient(transparent,#0d0d0d)" }}/>
+            </div>
+            {/* Info panel */}
+            <div style={{ flex:1, padding:"24px 26px" }}>
+              <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"36px", color:"#fff", letterSpacing:"3px", lineHeight:1 }}>{profile.name}</div>
+              <div style={{ display:"flex", gap:"8px", marginTop:"10px", flexWrap:"wrap" }}>
+                {[profile.nationality,profile.position,profile.currentTeam,`Age: ${profile.age}`].map((item,i) => (
+                  <span key={i} style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#555", letterSpacing:"1px", background:"#161616", padding:"5px 10px", borderRadius:"20px", border:"1px solid #222" }}>{item}</span>
+                ))}
               </div>
-              <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", color:"#888", lineHeight:"1.7", margin:"10px 0 0" }}>{profile.careerSummary}</p>
+              <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", color:"#888", lineHeight:"1.8", margin:"14px 0 0" }}>{profile.careerSummary}</p>
             </div>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"14px" }}>
-            <div style={{ background:"#0d0d0d", border:`1px solid ${color}18`, borderRadius:"2px", padding:"18px" }}>
-              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color, letterSpacing:"2px", marginBottom:"10px" }}>ACHIEVEMENTS</div>
-              {profile.achievements?.map((a,i) => <div key={i} style={{ display:"flex", gap:"8px", marginBottom:"7px" }}><span style={{ color, fontSize:"10px" }}>▸</span><span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:"#aaa" }}>{a}</span></div>)}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"16px" }}>
+            <div style={{ background:"#0d0d0d", border:`1px solid ${color}22`, borderRadius:"10px", padding:"20px" }}>
+              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color, letterSpacing:"2px", marginBottom:"12px" }}>ACHIEVEMENTS</div>
+              {profile.achievements?.map((a,i) => (
+                <div key={i} style={{ display:"flex", gap:"10px", marginBottom:"9px", alignItems:"flex-start" }}>
+                  <span style={{ color, fontSize:"10px", marginTop:"2px" }}>▸</span>
+                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:"#aaa", lineHeight:"1.6" }}>{a}</span>
+                </div>
+              ))}
             </div>
-            <div style={{ background:"#0d0d0d", border:"1px solid #1f1f1f", borderRadius:"2px", padding:"18px" }}>
-              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#888", letterSpacing:"2px", marginBottom:"10px" }}>KEY STATS</div>
-              {profile.keyStats?.map((s,i) => <div key={i} style={{ display:"flex", gap:"8px", marginBottom:"7px" }}><span style={{ color:"#888", fontSize:"10px" }}>▸</span><span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:"#aaa" }}>{s}</span></div>)}
+            <div style={{ background:"#0d0d0d", border:"1px solid #1a1a1a", borderRadius:"10px", padding:"20px" }}>
+              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#555", letterSpacing:"2px", marginBottom:"12px" }}>KEY STATS</div>
+              {profile.keyStats?.map((s,i) => (
+                <div key={i} style={{ display:"flex", gap:"10px", marginBottom:"9px", alignItems:"flex-start" }}>
+                  <span style={{ color:"#555", fontSize:"10px", marginTop:"2px" }}>▸</span>
+                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:"#aaa", lineHeight:"1.6" }}>{s}</span>
+                </div>
+              ))}
             </div>
           </div>
-          <div style={{ marginTop:"14px", background:"#0e0e0e", border:"1px solid #1f1f1f", borderRadius:"2px", padding:"16px 22px" }}>
-            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#333", letterSpacing:"2px", marginBottom:"6px" }}>LEGACY</div>
-            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"14px", color:"#666", fontStyle:"italic", margin:0, lineHeight:"1.6" }}>"{profile.legacyQuote}"</p>
+          <div style={{ marginTop:"16px", background:"#0e0e0e", border:`1px solid ${color}18`, borderRadius:"10px", padding:"20px 24px" }}>
+            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#333", letterSpacing:"2px", marginBottom:"8px" }}>LEGACY</div>
+            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"14px", color:"#777", fontStyle:"italic", margin:0, lineHeight:"1.7" }}>"{profile.legacyQuote}"</p>
           </div>
         </div>
       )}
@@ -215,12 +228,12 @@ function HeadToHead({ sport }) {
   const compare = async () => {
     if (!p1.trim()||!p2.trim()) return; setLoading(true); setResult(null); setImgs([null,null]);
     try {
-      const [img1,img2,data]=await Promise.all([
-        getPlayerImage(p1), getPlayerImage(p2),
-        askClaude(`Compare ${p1} vs ${p2} as ${label} players.`, `You are a ${label} analyst. Respond ONLY with raw JSON (no markdown): {"player1":{"name":"${p1}","strengths":["s1","s2","s3"],"weaknesses":["w1","w2"],"rating":"X/10","summary":"2 sentences"},"player2":{"name":"${p2}","strengths":["s1","s2","s3"],"weaknesses":["w1","w2"],"rating":"X/10","summary":"2 sentences"},"verdict":"2-3 sentence verdict","winner":"name"}`)
-      ]);
+      const data = await askClaude(`Compare ${p1} vs ${p2} as ${label} players.`, `You are a ${label} analyst. Respond ONLY with raw JSON (no markdown): {"player1":{"name":"${p1}","strengths":["s1","s2","s3"],"weaknesses":["w1","w2"],"rating":"X/10","summary":"2 sentences"},"player2":{"name":"${p2}","strengths":["s1","s2","s3"],"weaknesses":["w1","w2"],"rating":"X/10","summary":"2 sentences"},"verdict":"2-3 sentence verdict","winner":"name"}`);
+      const parsed = JSON.parse(data.replace(/```json|```/g,"").trim());
+      setResult(parsed);
+      // Use canonical names from Claude's response for accurate Wikipedia image lookup
+      const [img1,img2] = await Promise.all([getPlayerImage(parsed.player1.name), getPlayerImage(parsed.player2.name)]);
       setImgs([img1,img2]);
-      setResult(JSON.parse(data.replace(/```json|```/g,"").trim()));
     } catch { setResult({error:"Comparison failed."}); }
     setLoading(false);
   };
@@ -230,41 +243,42 @@ function HeadToHead({ sport }) {
 
   return (
     <div>
-      <div style={L}>COMPARE TWO {label.toUpperCase()} PLAYERS</div>
-      <div style={{ display:"flex", gap:"10px", marginBottom:"28px", alignItems:"center" }}>
-        <input value={p1} onChange={e=>setP1(e.target.value)} placeholder={`Player 1`} style={{...IS, flex:1}} onKeyDown={e=>e.key==="Enter"&&compare()}/>
-        <span style={{ fontFamily:"'Bebas Neue',serif", fontSize:"22px", color:"#333" }}>VS</span>
-        <input value={p2} onChange={e=>setP2(e.target.value)} placeholder={`Player 2`} style={{...IS, flex:1}} onKeyDown={e=>e.key==="Enter"&&compare()}/>
-        <button onClick={compare} style={SB(color)}>COMPARE →</button>
+      <div style={L}>Compare Two {label} Players</div>
+      <div style={{ display:"flex", gap:"12px", marginBottom:"32px", alignItems:"center" }}>
+        <input value={p1} onChange={e=>setP1(e.target.value)} placeholder="Player 1" style={{...IS, flex:1, borderRadius:"4px"}} onKeyDown={e=>e.key==="Enter"&&compare()}/>
+        <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"24px", color:"#2a2a2a", padding:"0 4px" }}>VS</div>
+        <input value={p2} onChange={e=>setP2(e.target.value)} placeholder="Player 2" style={{...IS, flex:1, borderRadius:"4px"}} onKeyDown={e=>e.key==="Enter"&&compare()}/>
+        <button onClick={compare} style={{...SB(color), borderRadius:"4px"}}>COMPARE →</button>
       </div>
       {loading&&<LoadDots color={color}/>}
       {result&&!result.error&&(
         <div style={{ animation:"fadeIn 0.4s ease" }}>
-          <div style={{ display:"flex", gap:"14px", marginBottom:"14px" }}>
+          <div style={{ display:"flex", gap:"16px", marginBottom:"16px" }}>
             {[{p:result.player1,img:imgs[0],c:colors[0],bg:bgs[0]},{p:result.player2,img:imgs[1],c:colors[1],bg:bgs[1]}].map(({p,img,c,bg}) => (
-              <div key={p.name} style={{ flex:1, background:bg, border:`1px solid ${c}18`, borderRadius:"2px", padding:"20px" }}>
-                <div style={{ display:"flex", gap:"14px", marginBottom:"14px", alignItems:"center" }}>
-                  <PlayerAvatar image={img} name={p.name} size={68}/>
+              <div key={p.name} style={{ flex:1, background:bg, border:`1px solid ${c}22`, borderRadius:"10px", padding:"22px", overflow:"hidden", position:"relative" }}>
+                <div style={{ position:"absolute", top:0, left:0, right:0, height:"2px", background:`linear-gradient(90deg,${c},${c}00)` }}/>
+                <div style={{ display:"flex", gap:"16px", marginBottom:"16px", alignItems:"center" }}>
+                  <PlayerAvatar image={img} name={p.name} size={72}/>
                   <div>
-                    <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"22px", color:c, letterSpacing:"3px" }}>{p.name}</div>
-                    <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"16px", color:c, marginTop:"4px" }}>{p.rating}</div>
+                    <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"24px", color:c, letterSpacing:"3px" }}>{p.name}</div>
+                    <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"18px", color:c, marginTop:"4px", fontWeight:"700" }}>{p.rating}</div>
                   </div>
                 </div>
-                <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:"#888", lineHeight:"1.7", margin:"0 0 12px" }}>{p.summary}</p>
-                <div style={{ marginBottom:"8px" }}>
-                  <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:c+"88", letterSpacing:"2px", marginBottom:"5px" }}>STRENGTHS</div>
-                  {p.strengths?.map((s,i) => <div key={i} style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"11px", color:"#aaa", marginBottom:"3px" }}>+ {s}</div>)}
+                <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:"#777", lineHeight:"1.8", margin:"0 0 16px" }}>{p.summary}</p>
+                <div style={{ marginBottom:"12px" }}>
+                  <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:c+"88", letterSpacing:"2px", marginBottom:"6px" }}>STRENGTHS</div>
+                  {p.strengths?.map((s,i) => <div key={i} style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"11px", color:"#aaa", marginBottom:"4px" }}>+ {s}</div>)}
                 </div>
                 <div>
-                  <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#ff444488", letterSpacing:"2px", marginBottom:"5px" }}>WEAKNESSES</div>
-                  {p.weaknesses?.map((w,i) => <div key={i} style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"11px", color:"#666", marginBottom:"3px" }}>− {w}</div>)}
+                  <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#ff444488", letterSpacing:"2px", marginBottom:"6px" }}>WEAKNESSES</div>
+                  {p.weaknesses?.map((w,i) => <div key={i} style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"11px", color:"#555", marginBottom:"4px" }}>− {w}</div>)}
                 </div>
               </div>
             ))}
           </div>
-          <div style={{ background:"#0e0e0e", border:"1px solid #1f1f1f", borderRadius:"2px", padding:"16px 22px" }}>
-            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#333", letterSpacing:"2px", marginBottom:"6px" }}>VERDICT</div>
-            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", color:"#888", margin:"0 0 10px", lineHeight:"1.7" }}>{result.verdict}</p>
+          <div style={{ background:"#0e0e0e", border:`1px solid ${color}18`, borderRadius:"10px", padding:"20px 24px" }}>
+            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#333", letterSpacing:"2px", marginBottom:"8px" }}>VERDICT</div>
+            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", color:"#888", margin:"0 0 12px", lineHeight:"1.8" }}>{result.verdict}</p>
             <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"16px", color:"#fff", letterSpacing:"3px" }}>WINNER: <span style={{ color }}>{result.winner}</span></div>
           </div>
         </div>
@@ -286,41 +300,52 @@ function Timeline({ sport }) {
   const search = async () => {
     if (!s.trim()) return; setLoading(true); setTimeline(null); setImage(null);
     try {
-      const [img,data]=await Promise.all([
-        getPlayerImage(s),
-        askClaude(`Career timeline of ${s} in ${label}.`, `You are a ${label} historian. Respond ONLY with raw JSON (no markdown): {"name":"player name","events":[{"year":"YYYY","event":"short description","type":"debut|transfer|trophy|milestone|retirement"}]} Include 6-10 key career moments. For cricket/tennis use transfer type for team/tour changes.`)
-      ]);
+      const data = await askClaude(`Career timeline of ${s} in ${label}.`, `You are a ${label} historian. Respond ONLY with raw JSON (no markdown): {"name":"player name","events":[{"year":"YYYY","event":"short description","type":"debut|transfer|trophy|milestone|retirement"}]} Include 6-10 key career moments. For cricket/tennis use transfer type for team/tour changes.`);
+      const parsed = JSON.parse(data.replace(/```json|```/g,"").trim());
+      setTimeline(parsed);
+      const img = await getPlayerImage(parsed.name);
       setImage(img);
-      setTimeline(JSON.parse(data.replace(/```json|```/g,"").trim()));
     } catch { setTimeline({error:"Could not load timeline."}); }
     setLoading(false);
   };
 
   return (
     <div>
-      <div style={L}>CAREER TIMELINE</div>
-      <div style={{ display:"flex", border:"1px solid #1f1f1f", borderRadius:"2px", overflow:"hidden", marginBottom:"28px" }}>
+      <div style={L}>Career Timeline</div>
+      <div style={{ display:"flex", border:"1px solid #1f1f1f", borderRadius:"4px", overflow:"hidden", marginBottom:"32px" }}>
         <input value={s} onChange={e=>setS(e.target.value)} onKeyDown={e=>e.key==="Enter"&&search()} placeholder={`e.g. ${label==="Cricket"?"Sachin Tendulkar":label==="Tennis"?"Serena Williams":"Cristiano Ronaldo"}`} style={{ flex:1, background:"#0e0e0e", border:"none", padding:"14px 18px", color:"#fff", fontFamily:"'DM Sans',sans-serif", fontSize:"14px", outline:"none" }}/>
         <button onClick={search} style={SB(color)}>TIMELINE →</button>
       </div>
       {loading&&<LoadDots color={color}/>}
       {timeline&&!timeline.error&&(
         <div style={{ animation:"fadeIn 0.4s ease" }}>
-          <div style={{ display:"flex", gap:"14px", alignItems:"center", marginBottom:"26px" }}>
-            <PlayerAvatar image={image} name={timeline.name} size={70}/>
-            <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"30px", color:"#fff", letterSpacing:"4px" }}>{timeline.name}</div>
+          <div style={{ display:"flex", gap:"0", marginBottom:"30px", background:"#0d0d0d", border:"1px solid #1a1a1a", borderRadius:"10px", overflow:"hidden" }}>
+            <div style={{ width:"120px", flexShrink:0, background:"#0a0a0a", position:"relative" }}>
+              {image
+                ? <img src={image} alt={timeline.name} onError={e => { e.target.style.display="none"; e.target.nextElementSibling.style.display="flex"; }} style={{ width:"100%", height:"100%", minHeight:"140px", objectFit:"cover", objectPosition:"top", display:"block" }}/>
+                : null}
+              <div style={{ display: image ? "none" : "flex", width:"100%", minHeight:"140px", alignItems:"center", justifyContent:"center", fontSize:"40px", color:"#1f1f1f" }}>👤</div>
+              <div style={{ position:"absolute", bottom:0, left:0, right:0, height:"40px", background:"linear-gradient(transparent,#0d0d0d)" }}/>
+            </div>
+            <div style={{ flex:1, padding:"20px 24px", display:"flex", flexDirection:"column", justifyContent:"center" }}>
+              <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"32px", color:"#fff", letterSpacing:"4px" }}>{timeline.name}</div>
+              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#333", letterSpacing:"2px", marginTop:"4px" }}>CAREER TIMELINE</div>
+            </div>
           </div>
-          <div style={{ position:"relative", paddingLeft:"38px" }}>
-            <div style={{ position:"absolute", left:"13px", top:0, bottom:0, width:"1px", background:"#1a1a1a" }}/>
+          <div style={{ position:"relative", paddingLeft:"42px" }}>
+            <div style={{ position:"absolute", left:"15px", top:0, bottom:0, width:"1px", background:"linear-gradient(180deg,#1a1a1a,transparent)" }}/>
             {timeline.events?.map((e,i) => {
               const c = typeColor[e.type]||"#fff";
               return (
-                <div key={i} style={{ position:"relative", marginBottom:"14px", animation:`fadeIn 0.4s ease ${i*0.06}s both` }}>
-                  <div style={{ position:"absolute", left:"-30px", top:"8px", width:"10px", height:"10px", borderRadius:"50%", background:c, boxShadow:`0 0 8px ${c}55` }}/>
-                  <div style={{ background:"#0d0d0d", border:`1px solid ${c}18`, borderRadius:"2px", padding:"12px 16px", display:"flex", gap:"14px", alignItems:"flex-start" }}>
-                    <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"20px", color:c, letterSpacing:"2px", minWidth:"52px" }}>{e.year}</div>
-                    <div style={{ flex:1 }}><span style={{ marginRight:"7px" }}>{typeIcon[e.type]}</span><span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", color:"#bbb", lineHeight:"1.6" }}>{e.event}</span></div>
-                    <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:c+"55", letterSpacing:"1px", textTransform:"uppercase" }}>{e.type}</div>
+                <div key={i} style={{ position:"relative", marginBottom:"16px", animation:`fadeIn 0.4s ease ${i*0.06}s both` }}>
+                  <div style={{ position:"absolute", left:"-32px", top:"50%", transform:"translateY(-50%)", width:"12px", height:"12px", borderRadius:"50%", background:c, boxShadow:`0 0 10px ${c}66` }}/>
+                  <div style={{ background:"#0d0d0d", border:`1px solid ${c}1a`, borderRadius:"8px", padding:"14px 18px", display:"flex", gap:"16px", alignItems:"flex-start" }}>
+                    <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"22px", color:c, letterSpacing:"2px", minWidth:"56px" }}>{e.year}</div>
+                    <div style={{ flex:1 }}>
+                      <span style={{ marginRight:"8px" }}>{typeIcon[e.type]}</span>
+                      <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", color:"#bbb", lineHeight:"1.7" }}>{e.event}</span>
+                    </div>
+                    <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:c+"55", letterSpacing:"1px", textTransform:"uppercase", paddingTop:"4px" }}>{e.type}</div>
                   </div>
                 </div>
               );
@@ -335,50 +360,124 @@ function Timeline({ sport }) {
 
 // ─── MAIN APP ────────────────────────────────────────────────────────────────
 
+const TABS = [
+  { id:"dual",     label:"Dual Analyst",   icon:"⚡" },
+  { id:"profile",  label:"Player Profile", icon:"👤" },
+  { id:"h2h",      label:"Head to Head",   icon:"⚔️" },
+  { id:"timeline", label:"Timeline",       icon:"📅" },
+];
+
 export default function App() {
   const [sportKey, setSportKey] = useState("football");
   const [tab, setTab] = useState("dual");
   const sport = SPORTS[sportKey];
-  const tabs = [{id:"dual",label:"DUAL ANALYST"},{id:"profile",label:"PLAYER PROFILE"},{id:"h2h",label:"HEAD TO HEAD"},{id:"timeline",label:"TIMELINE"}];
 
   const handleSportChange = (key) => { setSportKey(key); setTab("dual"); };
 
   return (
-    <div style={{ minHeight:"100vh", background:"#080808" }}>
+    <div style={{ minHeight:"100vh", background:"#080808", display:"flex", flexDirection:"column" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap');
-        @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
         @keyframes pulse { 0%,100%{opacity:0.3;transform:scale(0.8)} 50%{opacity:1;transform:scale(1.2)} }
         * { box-sizing:border-box; } input{outline:none;} button{cursor:pointer;}
+        ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-track { background:#0a0a0a; } ::-webkit-scrollbar-thumb { background:#222; border-radius:2px; }
       `}</style>
 
-      {/* Header */}
-      <div style={{ borderBottom:"1px solid #141414", padding:"16px 36px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:"12px" }}>
-          <div style={{ width:"28px", height:"28px", background:`linear-gradient(135deg,${sport.analystA.accent},${sport.analystB.accent})`, borderRadius:"2px", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"14px", transition:"background 0.4s" }}>{sport.emoji}</div>
+      {/* ── Top Header ── */}
+      <div style={{ borderBottom:"1px solid #111", padding:"0 28px", background:"#040404", display:"flex", alignItems:"center", justifyContent:"space-between", height:"58px", flexShrink:0 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:"14px" }}>
+          <div style={{ width:"32px", height:"32px", background:`linear-gradient(135deg,${sport.analystA.accent},${sport.analystB.accent})`, borderRadius:"8px", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"16px", transition:"background 0.4s", flexShrink:0 }}>{sport.emoji}</div>
           <div>
-            <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"19px", color:"#fff", letterSpacing:"4px" }}>SportIQ</div>
-            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#2a2a2a", letterSpacing:"2px" }}>AI SPORTS PLATFORM</div>
+            <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"22px", color:"#fff", letterSpacing:"5px", lineHeight:1 }}>SportIQ</div>
+            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"7px", color:"#2a2a2a", letterSpacing:"3px" }}>AI SPORTS PLATFORM</div>
           </div>
         </div>
-        <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#222", letterSpacing:"1px" }}>POWERED BY CLAUDE</div>
-      </div>
-
-      {/* Sport Selector */}
-      <div style={{ borderBottom:"1px solid #0e0e0e", padding:"16px 36px", background:"#050505" }}>
-        <SportSelector selected={sportKey} onChange={handleSportChange}/>
-        {/* Feature Tabs */}
-        <div style={{ display:"flex" }}>
-          {tabs.map(t => <NavTab key={t.id} label={t.label} active={tab===t.id} onClick={()=>setTab(t.id)}/>)}
+        <div style={{ display:"flex", alignItems:"center", gap:"16px" }}>
+          <div style={{ width:"6px", height:"6px", borderRadius:"50%", background:"#00ff87", boxShadow:"0 0 6px #00ff8788" }}/>
+          <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#2a2a2a", letterSpacing:"2px" }}>POWERED BY CLAUDE</div>
         </div>
       </div>
 
-      {/* Content */}
-      <div style={{ maxWidth:"980px", margin:"0 auto", padding:"32px 36px" }}>
-        {tab==="dual"    && <DualAnalyst   key={sportKey} sport={sport}/>}
-        {tab==="profile" && <PlayerProfile key={sportKey} sport={sport}/>}
-        {tab==="h2h"     && <HeadToHead    key={sportKey} sport={sport}/>}
-        {tab==="timeline"&& <Timeline      key={sportKey} sport={sport}/>}
+      {/* ── Body: Sidebar + Content ── */}
+      <div style={{ display:"flex", flex:1, overflow:"hidden" }}>
+
+        {/* ── Sidebar ── */}
+        <div style={{ width:"220px", borderRight:"1px solid #111", background:"#040404", display:"flex", flexDirection:"column", flexShrink:0, padding:"24px 0" }}>
+
+          {/* Sport Selector */}
+          <div style={{ padding:"0 16px", marginBottom:"8px" }}>
+            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#222", letterSpacing:"3px", marginBottom:"12px", paddingLeft:"4px" }}>SPORT</div>
+            {Object.entries(SPORTS).map(([key, s]) => {
+              const isActive = sportKey === key;
+              return (
+                <button key={key} onClick={() => handleSportChange(key)} style={{
+                  width:"100%", background: isActive ? s.color+"12" : "transparent",
+                  border: `1px solid ${isActive ? s.color+"40" : "transparent"}`,
+                  borderRadius:"8px", padding:"10px 14px", cursor:"pointer",
+                  display:"flex", alignItems:"center", gap:"10px", marginBottom:"4px",
+                  transition:"all 0.2s", textAlign:"left"
+                }}>
+                  <span style={{ fontSize:"18px" }}>{s.emoji}</span>
+                  <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"10px", letterSpacing:"2px", color: isActive ? s.color : "#333" }}>{s.label.toUpperCase()}</span>
+                  {isActive && <div style={{ marginLeft:"auto", width:"5px", height:"5px", borderRadius:"50%", background:s.color }}/>}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Divider */}
+          <div style={{ height:"1px", background:"#111", margin:"16px 16px 20px" }}/>
+
+          {/* Tab Navigation */}
+          <div style={{ padding:"0 16px", flex:1 }}>
+            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#222", letterSpacing:"3px", marginBottom:"12px", paddingLeft:"4px" }}>FEATURES</div>
+            {TABS.map(t => {
+              const isActive = tab === t.id;
+              return (
+                <button key={t.id} onClick={() => setTab(t.id)} style={{
+                  width:"100%", background: isActive ? sport.color+"10" : "transparent",
+                  border: `1px solid ${isActive ? sport.color+"30" : "transparent"}`,
+                  borderRadius:"8px", padding:"11px 14px", cursor:"pointer",
+                  display:"flex", alignItems:"center", gap:"10px", marginBottom:"4px",
+                  transition:"all 0.2s", textAlign:"left"
+                }}>
+                  <span style={{ fontSize:"14px" }}>{t.icon}</span>
+                  <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"10px", letterSpacing:"1px", color: isActive ? sport.color : "#333" }}>{t.label.toUpperCase()}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Bottom accent */}
+          <div style={{ padding:"16px", marginTop:"auto" }}>
+            <div style={{ background:`${sport.color}08`, border:`1px solid ${sport.color}18`, borderRadius:"8px", padding:"12px 14px" }}>
+              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:sport.color+"66", letterSpacing:"2px", marginBottom:"4px" }}>ACTIVE SPORT</div>
+              <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"18px", color:sport.color, letterSpacing:"3px" }}>{sport.label.toUpperCase()}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Content Area ── */}
+        <div style={{ flex:1, overflowY:"auto", background:"#080808" }}>
+          {/* Content header strip */}
+          <div style={{ borderBottom:"1px solid #0f0f0f", padding:"18px 36px", display:"flex", alignItems:"center", gap:"12px", background:"#060606", position:"sticky", top:0, zIndex:10 }}>
+            <span style={{ fontSize:"20px" }}>{TABS.find(t=>t.id===tab)?.icon}</span>
+            <div>
+              <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"20px", color:"#fff", letterSpacing:"3px" }}>{TABS.find(t=>t.id===tab)?.label.toUpperCase()}</div>
+              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#2a2a2a", letterSpacing:"2px" }}>{sport.label.toUpperCase()} · SPORTIQ</div>
+            </div>
+            <div style={{ marginLeft:"auto", height:"2px", flex:1, maxWidth:"120px", background:`linear-gradient(90deg,${sport.color}44,transparent)`, borderRadius:"1px" }}/>
+          </div>
+
+          {/* Main content — all tabs stay mounted to preserve state */}
+          <div style={{ padding:"32px 36px", maxWidth:"900px" }}>
+            <div style={{ display: tab==="dual"     ? "block" : "none" }}><DualAnalyst   key={sportKey} sport={sport}/></div>
+            <div style={{ display: tab==="profile"  ? "block" : "none" }}><PlayerProfile key={sportKey} sport={sport}/></div>
+            <div style={{ display: tab==="h2h"      ? "block" : "none" }}><HeadToHead    key={sportKey} sport={sport}/></div>
+            <div style={{ display: tab==="timeline" ? "block" : "none" }}><Timeline      key={sportKey} sport={sport}/></div>
+          </div>
+        </div>
       </div>
     </div>
   );
