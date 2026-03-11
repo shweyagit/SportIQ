@@ -23,7 +23,7 @@ const SPORTS = {
   }
 };
 
-// ─── API HELPERS ─────────────────────────────────────────────────────────────
+//─── API HELPERS ─────────────────────────────────────────────────────────────
 
 async function askClaude(prompt, systemPrompt) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
