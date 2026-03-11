@@ -5,19 +5,19 @@ import { useState } from "react";
 const SPORTS = {
   football: {
     label: "Football", emoji: "⚽", color: "#00ff87",
-    suggestions: ["Is Mbappe worth his transfer fee?", "Messi or Ronaldo GOAT?", "Is Tiki-Taka dead?", "Will Arsenal win the PL?", "Best manager of the decade?"],
+    suggestions: ["Who would win: Peak Messi vs Peak Ronaldo in a one-on-one?", "Could Guardiola's City beat any club in history?", "Is the Premier League ruining international football?", "Which footballer has the highest football IQ ever?", "Would Ronaldinho thrive in modern football?"],
     analystA: { Role: "Tactical Analyst", accent: "#00ff87", bg: "#0a1a12", persona: "A sharp tactical football analyst. Focus on formations, pressing systems, positional play, tactical patterns. Reference managers like Guardiola, Klopp, Ancelotti. Be confident, analytical, opinionated. Max 4 sentences." },
     analystB: { Role: "Data & Stats", accent: "#ff6b35", bg: "#1a0f0a", persona: "A data-driven football analyst. Focus on xG, statistics, player metrics, historical data. Challenge conventional wisdom with numbers. Be precise, contrarian. Max 4 sentences." },
   },
   cricket: {
     label: "Cricket", emoji: "🏏", color: "#4fc3f7",
-    suggestions: ["Kohli or Tendulkar — who is greater?", "Is Test cricket dying?", "Best T20 team of all time?", "Can England win the next Ashes?", "Greatest ODI innings ever?"],
+    suggestions: ["Could Tendulkar average 60 in today's T20-obsessed era?", "Is Kohli mentally the toughest batter ever?", "Which is harder — facing Warne or Murali on a turning track?", "Would the 2007 World T20 team beat the 2024 T20 World Cup winners?", "Is DRS killing the art of umpiring?"],
     analystA: { Role: "Technique Analyst", accent: "#4fc3f7", bg: "#0a1218", persona: "A cricket technique analyst. Focus on batting technique, bowling actions, footwork, shot selection, pitch reading. Reference legends like Tendulkar, Lara, McGrath. Be insightful and technical. Max 4 sentences." },
     analystB: { Role: "Stats & Strategy", accent: "#e040fb", bg: "#140a18", persona: "A cricket statistician and strategist. Focus on batting averages, strike rates, bowling economy, match situations, team selection strategy. Use data to challenge popular opinions. Max 4 sentences." },
   },
   tennis: {
     label: "Tennis", emoji: "🎾", color: "#ffd700",
-    suggestions: ["Federer, Nadal or Djokovic — the GOAT?", "Is Sinner the future of tennis?", "Best serve in history?", "Will anyone break Djokovic's Slam record?", "Clay vs Grass — hardest surface?"],
+    suggestions: ["Could peak Federer beat Djokovic on any surface?", "Is Sinner already better than a young Federer?", "Would Serena Williams beat a top-10 men's player?", "Is clay the ultimate test of a true tennis champion?", "Which Slam is the hardest to win — and why?"],
     analystA: { Role: "Game Analyst", accent: "#ffd700", bg: "#181200", persona: "A tennis game analyst. Focus on playing styles, court tactics, serve-return patterns, mental game, surface adaptation. Reference Federer, Nadal, Djokovic techniques. Be precise and tactical. Max 4 sentences." },
     analystB: { Role: "Stats & History", accent: "#ff4081", bg: "#180008", persona: "A tennis historian and statistician. Focus on Slam records, head-to-head stats, ranking history, era comparisons. Use historical data to back arguments. Be opinionated and evidence-driven. Max 4 sentences." },
   }
@@ -367,15 +367,18 @@ const TABS = [
   { id:"timeline", label:"Timeline",       icon:"📅" },
 ];
 
+const BG_PRESETS = ["#080808","#0a0a1a","#0d0a14","#0a1410","#1a0a0a","#0d0d0d","#111827"];
+
 export default function App() {
   const [sportKey, setSportKey] = useState("football");
   const [tab, setTab] = useState("dual");
+  const [bgColor, setBgColor] = useState("#080808");
   const sport = SPORTS[sportKey];
 
   const handleSportChange = (key) => { setSportKey(key); setTab("dual"); };
 
   return (
-    <div style={{ minHeight:"100vh", background:"#080808", display:"flex", flexDirection:"column" }}>
+    <div style={{ minHeight:"100vh", background:bgColor, display:"flex", flexDirection:"column" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap');
         @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
@@ -407,7 +410,7 @@ export default function App() {
 
           {/* Sport Selector */}
           <div style={{ padding:"0 16px", marginBottom:"8px" }}>
-            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#222", letterSpacing:"3px", marginBottom:"12px", paddingLeft:"4px" }}>SPORT</div>
+            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#555", letterSpacing:"3px", marginBottom:"12px", paddingLeft:"4px" }}>SPORT</div>
             {Object.entries(SPORTS).map(([key, s]) => {
               const isActive = sportKey === key;
               return (
@@ -419,7 +422,7 @@ export default function App() {
                   transition:"all 0.2s", textAlign:"left"
                 }}>
                   <span style={{ fontSize:"18px" }}>{s.emoji}</span>
-                  <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"10px", letterSpacing:"2px", color: isActive ? s.color : "#333" }}>{s.label.toUpperCase()}</span>
+                  <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"10px", letterSpacing:"2px", color: isActive ? s.color : "#fff" }}>{s.label.toUpperCase()}</span>
                   {isActive && <div style={{ marginLeft:"auto", width:"5px", height:"5px", borderRadius:"50%", background:s.color }}/>}
                 </button>
               );
@@ -431,7 +434,7 @@ export default function App() {
 
           {/* Tab Navigation */}
           <div style={{ padding:"0 16px", flex:1 }}>
-            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#222", letterSpacing:"3px", marginBottom:"12px", paddingLeft:"4px" }}>FEATURES</div>
+            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#555", letterSpacing:"3px", marginBottom:"12px", paddingLeft:"4px" }}>FEATURES</div>
             {TABS.map(t => {
               const isActive = tab === t.id;
               return (
@@ -443,7 +446,7 @@ export default function App() {
                   transition:"all 0.2s", textAlign:"left"
                 }}>
                   <span style={{ fontSize:"14px" }}>{t.icon}</span>
-                  <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"10px", letterSpacing:"1px", color: isActive ? sport.color : "#333" }}>{t.label.toUpperCase()}</span>
+                  <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"10px", letterSpacing:"1px", color: isActive ? sport.color : "#fff" }}>{t.label.toUpperCase()}</span>
                 </button>
               );
             })}
@@ -451,6 +454,19 @@ export default function App() {
 
           {/* Bottom accent */}
           <div style={{ padding:"16px", marginTop:"auto" }}>
+            {/* Background color picker */}
+            <div style={{ marginBottom:"12px" }}>
+              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#222", letterSpacing:"3px", marginBottom:"10px", paddingLeft:"4px" }}>BACKGROUND</div>
+              <div style={{ display:"flex", gap:"6px", flexWrap:"wrap", marginBottom:"8px" }}>
+                {BG_PRESETS.map(c => (
+                  <button key={c} onClick={() => setBgColor(c)} style={{ width:"22px", height:"22px", borderRadius:"50%", background:c, border: bgColor===c ? `2px solid ${sport.color}` : "2px solid #333", cursor:"pointer", transition:"border 0.2s" }}/>
+                ))}
+                <label style={{ width:"22px", height:"22px", borderRadius:"50%", border:"2px solid #333", cursor:"pointer", overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"12px", title:"Custom" }}>
+                  🎨
+                  <input type="color" value={bgColor} onChange={e => setBgColor(e.target.value)} style={{ opacity:0, position:"absolute", width:"1px", height:"1px" }}/>
+                </label>
+              </div>
+            </div>
             <div style={{ background:`${sport.color}08`, border:`1px solid ${sport.color}18`, borderRadius:"8px", padding:"12px 14px" }}>
               <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:sport.color+"66", letterSpacing:"2px", marginBottom:"4px" }}>ACTIVE SPORT</div>
               <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"18px", color:sport.color, letterSpacing:"3px" }}>{sport.label.toUpperCase()}</div>
@@ -459,13 +475,13 @@ export default function App() {
         </div>
 
         {/* ── Content Area ── */}
-        <div style={{ flex:1, overflowY:"auto", background:"#080808" }}>
+        <div style={{ flex:1, overflowY:"auto", background:bgColor }}>
           {/* Content header strip */}
           <div style={{ borderBottom:"1px solid #0f0f0f", padding:"18px 36px", display:"flex", alignItems:"center", gap:"12px", background:"#060606", position:"sticky", top:0, zIndex:10 }}>
             <span style={{ fontSize:"20px" }}>{TABS.find(t=>t.id===tab)?.icon}</span>
             <div>
               <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"20px", color:"#fff", letterSpacing:"3px" }}>{TABS.find(t=>t.id===tab)?.label.toUpperCase()}</div>
-              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#2a2a2a", letterSpacing:"2px" }}>{sport.label.toUpperCase()} · SPORTIQ</div>
+              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#555", letterSpacing:"2px" }}>{sport.label.toUpperCase()} · SPORTIQ</div>
             </div>
             <div style={{ marginLeft:"auto", height:"2px", flex:1, maxWidth:"120px", background:`linear-gradient(90deg,${sport.color}44,transparent)`, borderRadius:"1px" }}/>
           </div>
