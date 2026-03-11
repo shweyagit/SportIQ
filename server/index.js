@@ -37,7 +37,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Internal server error", detail: err.message });
 });
 
-const PORT = process.env.API_PORT || 4000;
+const PORT = process.env.PORT || process.env.API_PORT || 4000;
 app.listen(PORT, () => {
   console.log(`\n🚀 SportIQ API running at http://localhost:${PORT}`);
   console.log(`📖 Swagger docs at  http://localhost:${PORT}/api-docs\n`);
