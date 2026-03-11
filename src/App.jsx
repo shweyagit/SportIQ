@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import supabase from "./supabase";
 
 // ─── SPORTS CONFIG ───────────────────────────────────────────────────────────
 
@@ -108,7 +109,7 @@ const IS = { background:"#0e0e0e", border:"1px solid #1f1f1f", borderRadius:"4px
 
 // ─── DUAL ANALYST ────────────────────────────────────────────────────────────
 
-function DualAnalyst({ sport }) {
+function DualAnalyst({ sport, onSave }) {
   const [q, setQ] = useState(""); const [rA, setRA] = useState(""); const [rB, setRB] = useState("");
   const [lA, setLA] = useState(false); const [lB, setLB] = useState(false);
   const [hist, setHist] = useState([]);
@@ -118,6 +119,7 @@ function DualAnalyst({ sport }) {
     const qry = query || q; if (!qry.trim()) return;
     setRA(""); setRB(""); setLA(true); setLB(true);
     setHist(p => [{question:qry, time:new Date().toLocaleTimeString()}, ...p.slice(0,4)]);
+    onSave(qry);
     try {
       const [a,b] = await Promise.all([askClaude(qry, aA.persona), askClaude(qry, aB.persona)]);
       setRA(a); setRB(b);
@@ -165,7 +167,7 @@ function DualAnalyst({ sport }) {
 
 // ─── PLAYER PROFILE ──────────────────────────────────────────────────────────
 
-function PlayerProfile({ sport }) {
+function PlayerProfile({ sport, onSave }) {
   const [s, setS] = useState(""); const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState(null); const [image, setImage] = useState(null);
   const { color, label } = sport;
@@ -176,6 +178,7 @@ function PlayerProfile({ sport }) {
       const data = await askClaude(`Profile of ${s} as a ${label} player.`, `You are a ${label} encyclopedia. Respond ONLY with raw JSON (no markdown, no backticks): {"name":"full name","nationality":"country","position":"position or role","currentTeam":"current team or retired","age":"age","careerSummary":"2-3 sentence summary","achievements":["a1","a2","a3","a4"],"keyStats":["s1","s2","s3"],"legacyQuote":"one punchy sentence on legacy"}`);
       const parsed = JSON.parse(data.replace(/```json|```/g,"").trim());
       setProfile(parsed);
+      onSave(parsed.name);
       // Use the canonical full name Claude returned for a more accurate Wikipedia lookup
       const img = await getPlayerImage(parsed.name);
       setImage(img);
@@ -246,7 +249,7 @@ function PlayerProfile({ sport }) {
 
 // ─── HEAD TO HEAD ────────────────────────────────────────────────────────────
 
-function HeadToHead({ sport }) {
+function HeadToHead({ sport, onSave }) {
   const [p1,setP1]=useState(""); const [p2,setP2]=useState("");
   const [loading,setLoading]=useState(false); const [result,setResult]=useState(null); const [imgs,setImgs]=useState([null,null]);
   const { color, label, analystA: aA, analystB: aB } = sport;
@@ -257,6 +260,7 @@ function HeadToHead({ sport }) {
       const data = await askClaude(`Compare ${p1} vs ${p2} as ${label} players.`, `You are a ${label} analyst. Respond ONLY with raw JSON (no markdown): {"player1":{"name":"${p1}","strengths":["s1","s2","s3"],"weaknesses":["w1","w2"],"rating":"X/10","summary":"2 sentences"},"player2":{"name":"${p2}","strengths":["s1","s2","s3"],"weaknesses":["w1","w2"],"rating":"X/10","summary":"2 sentences"},"verdict":"2-3 sentence verdict","winner":"name"}`);
       const parsed = JSON.parse(data.replace(/```json|```/g,"").trim());
       setResult(parsed);
+      onSave(p1, p2);
       // Use canonical names from Claude's response for accurate Wikipedia image lookup
       const [img1,img2] = await Promise.all([getPlayerImage(parsed.player1.name), getPlayerImage(parsed.player2.name)]);
       setImgs([img1,img2]);
@@ -316,7 +320,7 @@ function HeadToHead({ sport }) {
 
 // ─── TIMELINE ────────────────────────────────────────────────────────────────
 
-function Timeline({ sport }) {
+function Timeline({ sport, onSave }) {
   const [s,setS]=useState(""); const [loading,setLoading]=useState(false);
   const [timeline,setTimeline]=useState(null); const [image,setImage]=useState(null);
   const { color, label } = sport;
@@ -329,6 +333,7 @@ function Timeline({ sport }) {
       const data = await askClaude(`Career timeline of ${s} in ${label}.`, `You are a ${label} historian. Respond ONLY with raw JSON (no markdown): {"name":"player name","events":[{"year":"YYYY","event":"short description","type":"debut|transfer|trophy|milestone|retirement"}]} Include 6-10 key career moments. For cricket/tennis use transfer type for team/tour changes.`);
       const parsed = JSON.parse(data.replace(/```json|```/g,"").trim());
       setTimeline(parsed);
+      onSave(parsed.name);
       const img = await getPlayerImage(parsed.name);
       setImage(img);
     } catch { setTimeline({error:"Could not load timeline."}); }
@@ -384,6 +389,78 @@ function Timeline({ sport }) {
   );
 }
 
+// ─── AUTH MODAL ──────────────────────────────────────────────────────────────
+
+function AuthModal({ onClose }) {
+  const [mode, setMode] = useState("login");
+  const [email, setEmail] = useState(""); const [password, setPassword] = useState("");
+  const [error, setError] = useState(""); const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  const handleGoogle = async () => {
+    await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: window.location.origin } });
+  };
+
+  const handleEmail = async () => {
+    if (!email || !password) return;
+    setLoading(true); setError("");
+    const fn = mode === "login" ? supabase.auth.signInWithPassword : supabase.auth.signUp;
+    const { error: err } = await fn.call(supabase.auth, { email, password });
+    if (err) setError(err.message);
+    else if (mode === "signup") setSent(true);
+    else onClose();
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000, animation:"fadeIn 0.2s ease" }}>
+      <div style={{ background:"#0d0d0d", border:"1px solid #1f1f1f", borderRadius:"12px", padding:"36px", width:"360px", position:"relative" }}>
+        <button onClick={onClose} style={{ position:"absolute", top:"16px", right:"16px", background:"none", border:"none", color:"#444", fontSize:"18px", cursor:"pointer" }}>✕</button>
+
+        <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"28px", color:"#fff", letterSpacing:"4px", marginBottom:"4px" }}>SPORTIQ</div>
+        <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#444", letterSpacing:"2px", marginBottom:"28px" }}>SIGN IN TO SAVE YOUR SEARCHES</div>
+
+        {sent ? (
+          <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", color:"#00ff87", textAlign:"center", lineHeight:"1.8" }}>
+            Check your email to confirm your account!
+          </div>
+        ) : (
+          <>
+            {/* Google Button */}
+            <button onClick={handleGoogle} style={{ width:"100%", background:"#fff", border:"none", borderRadius:"8px", padding:"12px", display:"flex", alignItems:"center", justifyContent:"center", gap:"10px", cursor:"pointer", marginBottom:"20px", fontFamily:"'DM Sans',sans-serif", fontSize:"14px", fontWeight:"500" }}>
+              <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
+              Continue with Google
+            </button>
+
+            <div style={{ display:"flex", alignItems:"center", gap:"12px", marginBottom:"20px" }}>
+              <div style={{ flex:1, height:"1px", background:"#1f1f1f" }}/>
+              <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#333" }}>OR</span>
+              <div style={{ flex:1, height:"1px", background:"#1f1f1f" }}/>
+            </div>
+
+            {/* Email/Password */}
+            <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" type="email" style={{ width:"100%", background:"#111", border:"1px solid #222", borderRadius:"6px", padding:"12px 14px", color:"#fff", fontFamily:"'DM Sans',sans-serif", fontSize:"13px", marginBottom:"10px", outline:"none" }}/>
+            <input value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" type="password" onKeyDown={e=>e.key==="Enter"&&handleEmail()} style={{ width:"100%", background:"#111", border:"1px solid #222", borderRadius:"6px", padding:"12px 14px", color:"#fff", fontFamily:"'DM Sans',sans-serif", fontSize:"13px", marginBottom:"16px", outline:"none" }}/>
+
+            {error && <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:"#ff6b35", marginBottom:"12px" }}>{error}</div>}
+
+            <button onClick={handleEmail} disabled={loading} style={{ width:"100%", background:"#fff", border:"none", borderRadius:"6px", padding:"12px", fontFamily:"'Space Mono',monospace", fontSize:"11px", letterSpacing:"2px", fontWeight:"700", cursor:"pointer", marginBottom:"16px", opacity: loading ? 0.6 : 1 }}>
+              {loading ? "..." : mode === "login" ? "SIGN IN" : "CREATE ACCOUNT"}
+            </button>
+
+            <div style={{ textAlign:"center", fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:"#444" }}>
+              {mode === "login" ? "No account? " : "Have an account? "}
+              <span onClick={() => { setMode(mode==="login"?"signup":"login"); setError(""); }} style={{ color:"#fff", cursor:"pointer", textDecoration:"underline" }}>
+                {mode === "login" ? "Sign up" : "Sign in"}
+              </span>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── MAIN APP ────────────────────────────────────────────────────────────────
 
 const TABS = [
@@ -399,9 +476,54 @@ export default function App() {
   const [sportKey, setSportKey] = useState("football");
   const [tab, setTab] = useState("dual");
   const [bgColor, setBgColor] = useState("#080808");
+  const [user, setUser] = useState(null);
+  const [showAuth, setShowAuth] = useState(false);
+  const [history, setHistory] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("sportiq_history") || "[]"); } catch { return []; }
+  });
+  const [showHistory, setShowHistory] = useState(true);
   const sport = SPORTS[sportKey];
 
+  // Listen for auth state changes
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) fetchHistory(session.user.id);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) fetchHistory(session.user.id);
+      else {
+        const local = JSON.parse(localStorage.getItem("sportiq_history") || "[]");
+        setHistory(local);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const fetchHistory = async (userId) => {
+    const { data } = await supabase.from("searches").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(30);
+    if (data) setHistory(data);
+  };
+
+  const saveSearch = async (query, feature) => {
+    const entry = { query, feature, sport: sportKey, created_at: new Date().toISOString() };
+    if (user) {
+      // Logged in — save to Supabase
+      const { data } = await supabase.from("searches").insert({ user_id: user.id, ...entry }).select().single();
+      if (data) setHistory(prev => [data, ...prev.slice(0, 29)]);
+    } else {
+      // Not logged in — save to localStorage
+      setHistory(prev => {
+        const updated = [entry, ...prev.slice(0, 29)];
+        localStorage.setItem("sportiq_history", JSON.stringify(updated));
+        return updated;
+      });
+    }
+  };
+
   const handleSportChange = (key) => { setSportKey(key); setTab("dual"); };
+  const handleSignOut = async () => { await supabase.auth.signOut(); };
 
   return (
     <div style={{ minHeight:"100vh", background:bgColor, display:"flex", flexDirection:"column" }}>
@@ -424,7 +546,16 @@ export default function App() {
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:"16px" }}>
           <div style={{ width:"6px", height:"6px", borderRadius:"50%", background:"#00ff87", boxShadow:"0 0 6px #00ff8788" }}/>
-          <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#2a2a2a", letterSpacing:"2px" }}>POWERED BY CLAUDE</div>
+          <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#333", letterSpacing:"2px" }}>POWERED BY CLAUDE</div>
+          {user ? (
+            <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
+              <img src={user.user_metadata?.avatar_url} alt="" onError={e=>e.target.style.display="none"} style={{ width:"28px", height:"28px", borderRadius:"50%", objectFit:"cover" }}/>
+              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#555" }}>{user.email?.split("@")[0] || user.user_metadata?.full_name}</div>
+              <button onClick={handleSignOut} style={{ background:"transparent", border:"1px solid #222", borderRadius:"6px", padding:"5px 10px", color:"#444", fontFamily:"'Space Mono',monospace", fontSize:"8px", letterSpacing:"1px", cursor:"pointer" }}>SIGN OUT</button>
+            </div>
+          ) : (
+            <button onClick={() => setShowAuth(true)} style={{ background:"#fff", border:"none", borderRadius:"6px", padding:"7px 14px", fontFamily:"'Space Mono',monospace", fontSize:"9px", letterSpacing:"2px", fontWeight:"700", cursor:"pointer" }}>SIGN IN</button>
+          )}
         </div>
       </div>
 
@@ -478,6 +609,27 @@ export default function App() {
             })}
           </div>
 
+          {/* Search History */}
+          {history.length > 0 && (
+            <div style={{ padding:"0 16px", marginBottom:"8px" }}>
+              <div style={{ height:"1px", background:"#111", marginBottom:"16px" }}/>
+              <button onClick={() => setShowHistory(h => !h)} style={{ width:"100%", background:"transparent", border:"none", display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer", padding:"0 4px", marginBottom:"8px" }}>
+                <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#555", letterSpacing:"3px" }}>HISTORY</div>
+                <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#333" }}>{showHistory ? "▲" : "▼"}</div>
+              </button>
+              {showHistory && (
+                <div style={{ maxHeight:"160px", overflowY:"auto" }}>
+                  {history.map((h, i) => (
+                    <div key={i} onClick={() => { setSportKey(h.sport); setTab(h.feature); }} style={{ padding:"8px 10px", borderRadius:"6px", marginBottom:"4px", cursor:"pointer", background:"#0a0a0a", border:"1px solid #161616" }}>
+                      <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"11px", color:"#888", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{h.query}</div>
+                      <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#333", marginTop:"3px" }}>{SPORTS[h.sport]?.emoji} {h.feature}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Bottom accent */}
           <div style={{ padding:"16px", marginTop:"auto" }}>
             {/* Background color picker */}
@@ -514,13 +666,15 @@ export default function App() {
 
           {/* Main content — all tabs stay mounted to preserve state */}
           <div style={{ padding:"32px 36px", maxWidth:"900px" }}>
-            <div style={{ display: tab==="dual"     ? "block" : "none" }}><DualAnalyst   key={sportKey} sport={sport}/></div>
-            <div style={{ display: tab==="profile"  ? "block" : "none" }}><PlayerProfile key={sportKey} sport={sport}/></div>
-            <div style={{ display: tab==="h2h"      ? "block" : "none" }}><HeadToHead    key={sportKey} sport={sport}/></div>
-            <div style={{ display: tab==="timeline" ? "block" : "none" }}><Timeline      key={sportKey} sport={sport}/></div>
+            <div style={{ display: tab==="dual"     ? "block" : "none" }}><DualAnalyst   key={sportKey} sport={sport} onSave={q => saveSearch(q, "dual")}/></div>
+            <div style={{ display: tab==="profile"  ? "block" : "none" }}><PlayerProfile key={sportKey} sport={sport} onSave={q => saveSearch(q, "profile")}/></div>
+            <div style={{ display: tab==="h2h"      ? "block" : "none" }}><HeadToHead    key={sportKey} sport={sport} onSave={(p1,p2) => saveSearch(`${p1} vs ${p2}`, "h2h")}/></div>
+            <div style={{ display: tab==="timeline" ? "block" : "none" }}><Timeline      key={sportKey} sport={sport} onSave={q => saveSearch(q, "timeline")}/></div>
           </div>
         </div>
       </div>
+
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)}/>}
     </div>
   );
 }
