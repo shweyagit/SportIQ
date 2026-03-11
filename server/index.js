@@ -19,6 +19,12 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDoc, {
 // ── Serve raw swagger spec for Postman import ─────────────────────────────────
 app.get("/swagger.json", (req, res) => res.json(swaggerDoc));
 
+// ── Serve Postman collection for direct URL import ────────────────────────────
+app.get("/postman-collection", (req, res) => {
+  res.setHeader("Content-Type", "application/json");
+  res.sendFile(path.join(__dirname, "SportIQ.postman_collection.json"));
+});
+
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use("/api/analyse",  require("./routes/analyse"));
 app.use("/api/player",   require("./routes/player"));
