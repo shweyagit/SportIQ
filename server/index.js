@@ -31,6 +31,7 @@ app.use("/api/player",   require("./routes/player"));
 app.use("/api/compare",  require("./routes/compare"));
 app.use("/api/timeline", require("./routes/timeline"));
 app.use("/api/history",  require("./routes/history"));
+app.use("/api/ingest",   require("./routes/ingest"));
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get("/api/health", (req, res) => {

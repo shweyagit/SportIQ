@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { retrieveContext } = require("../rag");
 
 const PERSONAS = {
   football: {
@@ -45,9 +46,14 @@ router.post("/", async (req, res) => {
 
   const personas = PERSONAS[sport];
   try {
+    const context = await retrieveContext(question, sport);
+    const augmentedQuestion = context
+      ? `Reference context (use if relevant):\n${context}\n\nQuestion: ${question}`
+      : question;
+
     const [analystA, analystB] = await Promise.all([
-      askClaude(question, personas.analystA),
-      askClaude(question, personas.analystB)
+      askClaude(augmentedQuestion, personas.analystA),
+      askClaude(augmentedQuestion, personas.analystB)
     ]);
     res.json({ question, sport, analystA, analystB });
   } catch (err) {

@@ -1,5 +1,39 @@
 const express = require("express");
 const router = express.Router();
+const { retrieveContext, storeDocument } = require("../rag");
+const { fetchPlayerDoc } = require("../services/sportsdb");
+const { createClient } = require("@supabase/supabase-js");
+
+const supabase =
+  process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY
+    ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY)
+    : null;
+
+// Ingest player from TheSportsDB if not already in the knowledge base
+async function autoIngestPlayer(name) {
+  if (!supabase) return;
+  try {
+    const normalised = name.toLowerCase();
+
+    // Check if already ingested
+    const { data } = await supabase
+      .from("sports_docs")
+      .select("id")
+      .eq("metadata->>source", "sportsdb")
+      .eq("metadata->>playerName", normalised)
+      .limit(1);
+
+    if (data?.length) return; // already in KB
+
+    const doc = await fetchPlayerDoc(name);
+    if (!doc) return;
+
+    await storeDocument(doc.content, doc.metadata, doc.sport);
+    console.log(`[RAG] Auto-ingested: ${name}`);
+  } catch (err) {
+    console.warn(`[RAG] Auto-ingest failed for ${name}:`, err.message);
+  }
+}
 
 async function askClaude(prompt, systemPrompt) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -44,9 +78,17 @@ router.post("/", async (req, res) => {
   const { name, sport = "football" } = req.body;
   if (!name) return res.status(400).json({ error: "name is required" });
 
+  // Fire-and-forget: ingest from TheSportsDB in the background
+  autoIngestPlayer(name);
+
   try {
+    const context = await retrieveContext(`${name} ${sport} player profile`, sport);
+    const prompt = context
+      ? `Reference context (use if relevant):\n${context}\n\nProfile of ${name} as a ${sport} player.`
+      : `Profile of ${name} as a ${sport} player.`;
+
     const raw = await askClaude(
-      `Profile of ${name} as a ${sport} player.`,
+      prompt,
       `You are a ${sport} encyclopedia. Respond ONLY with raw JSON: {"name":"full name","nationality":"country","position":"position","currentTeam":"team or retired","age":"age","careerSummary":"2-3 sentences","achievements":["a1","a2","a3"],"keyStats":["s1","s2","s3"],"legacyQuote":"one sentence"}`
     );
     const profile = JSON.parse(raw.replace(/```json|```/g, "").trim());

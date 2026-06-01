@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { retrieveContext } = require("../rag");
 
 async function askClaude(prompt, systemPrompt) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -27,8 +28,13 @@ router.post("/", async (req, res) => {
   if (!player1 || !player2) return res.status(400).json({ error: "player1 and player2 are required" });
 
   try {
+    const context = await retrieveContext(`${player1} ${player2} ${sport} comparison`, sport);
+    const prompt = context
+      ? `Reference context (use if relevant):\n${context}\n\nCompare ${player1} vs ${player2} as ${sport} players.`
+      : `Compare ${player1} vs ${player2} as ${sport} players.`;
+
     const raw = await askClaude(
-      `Compare ${player1} vs ${player2} as ${sport} players.`,
+      prompt,
       `You are a ${sport} analyst. Respond ONLY with raw JSON: {"player1":{"name":"${player1}","strengths":["s1","s2","s3"],"weaknesses":["w1","w2"],"rating":"X/10","summary":"2 sentences"},"player2":{"name":"${player2}","strengths":["s1","s2","s3"],"weaknesses":["w1","w2"],"rating":"X/10","summary":"2 sentences"},"verdict":"2-3 sentence verdict","winner":"name"}`
     );
     const result = JSON.parse(raw.replace(/```json|```/g, "").trim());
