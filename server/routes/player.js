@@ -57,17 +57,17 @@ async function askClaude(prompt, systemPrompt) {
 
 async function getPlayerImage(name) {
   try {
-    // 1. Wikipedia direct
-    const wikiRes = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(name)}`);
-    const wikiData = await wikiRes.json();
-    if (wikiData.originalimage?.source) return wikiData.originalimage.source;
-    if (wikiData.thumbnail?.source) return wikiData.thumbnail.source.replace(/\/\d+px-/, "/400px-");
-
-    // 2. TheSportsDB
+    // 1. TheSportsDB first — sport-specific, less likely to confuse namesakes
     const sdbRes = await fetch(`https://www.thesportsdb.com/api/v1/json/3/searchplayers.php?p=${encodeURIComponent(name)}`);
     const sdbData = await sdbRes.json();
     const player = sdbData?.player?.[0];
     if (player?.strThumb) return player.strThumb;
+
+    // 2. Wikipedia fallback
+    const wikiRes = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(name)}`);
+    const wikiData = await wikiRes.json();
+    if (wikiData.originalimage?.source) return wikiData.originalimage.source;
+    if (wikiData.thumbnail?.source) return wikiData.thumbnail.source.replace(/\/\d+px-/, "/400px-");
 
     return null;
   } catch { return null; }
@@ -77,6 +77,27 @@ async function getPlayerImage(name) {
 router.post("/", async (req, res) => {
   const { name, sport = "football" } = req.body;
   if (!name) return res.status(400).json({ error: "name is required" });
+
+  // Validate player exists in TheSportsDB and matches the requested sport
+  const SPORT_MAP = { football: "Soccer", cricket: "Cricket", tennis: "Tennis" };
+  try {
+    const checkRes = await fetch(
+      `https://www.thesportsdb.com/api/v1/json/3/searchplayers.php?p=${encodeURIComponent(name)}`
+    );
+    const checkData = await checkRes.json();
+    const players = checkData?.player;
+    if (!players?.length) {
+      return res.status(404).json({ error: `No player found for "${name}". Please check the spelling or try a different name.` });
+    }
+    const expectedSport = SPORT_MAP[sport];
+    const match = players.find(p => p.strSport === expectedSport);
+    if (!match) {
+      const foundSport = players[0].strSport;
+      return res.status(404).json({ error: `"${name}" was found but not as a ${sport} player (found in ${foundSport}). Try searching in the right sport.` });
+    }
+  } catch {
+    // If TheSportsDB is unreachable, proceed anyway
+  }
 
   // Fire-and-forget: ingest from TheSportsDB in the background
   autoIngestPlayer(name);
