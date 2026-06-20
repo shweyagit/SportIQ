@@ -232,6 +232,98 @@ Be honest and specific — this is more impressive than perfect scores:
 
 ---
 
+## Known Limitations & How to Talk About Them
+
+These are weaknesses you should **lead with** in the interview — not hide. Knowing what's broken and how you'd fix it is more impressive than pretending everything works perfectly.
+
+---
+
+### 1. Head to Head Score is Non-Deterministic
+
+**What's happening:**
+The X/10 rating for each player is generated entirely by Claude. There is no calculation behind it — Claude is simply asked to return a JSON with a `rating` field and it decides the number based on its training data and whatever RAG context was retrieved.
+
+**The problem:**
+- Swap player1 and player2 → scores change
+- Run the same comparison twice → scores may differ
+- The number is Claude's opinion formatted as a number, not a defensible metric
+
+**How to say it:**
+> *"The H2H rating is currently non-deterministic — it comes from Claude's judgment, not a calculated formula. I identified this by swapping player order and getting different scores. For a debate app that's acceptable, but it's not production-grade. The fix is to pull weighted career stats from an authenticated sports API like API-Football or CricAPI, calculate the score algorithmically — normalised across goals, trophies, peak ranking — and use Claude only for the written summary. That's the right separation: algorithm for numbers, LLM for language."*
+
+**Next iteration:**
+- Integrate API-Football / CricAPI / ATP API (authenticated, structured data)
+- Calculate score from weighted stats (e.g. goals per 90, trophy count, peak Ballon d'Or position)
+- Claude handles qualitative summary only — not the number
+
+---
+
+### 2. Static Knowledge Base — Fringe Players Get No RAG Context
+
+**What's happening:**
+The knowledge base covers ~15-20 top players hand-curated in `seed.js`. If someone asks about a lesser-known player, vector search returns empty — so the analyst responds using Claude's training data alone with no grounding.
+
+**The problem:**
+- RAG adds real value for Messi, Kohli, Federer
+- For Carlos Alcaraz, Jofra Archer, or any emerging player — it falls back to pure Claude
+- There's no signal to the user that RAG context was or wasn't used (though sources panel shows empty)
+
+**How to say it:**
+> *"The knowledge base is currently static — hand-curated for top players. For any player not in the seed, retrieval returns nothing and Claude responds from training data alone. The TheSportsDB auto-ingest partially addresses this for player profiles, but it doesn't yet feed back into the Dual Analyst RAG pipeline. The next step is a scheduled ingestion job pulling from sports APIs nightly to keep the knowledge base current."*
+
+**Next iteration:**
+- Scheduled ingestion pipeline (nightly cron) pulling from sports data APIs
+- Auto-ingest into RAG knowledge base on first Dual Analyst query for a player
+- Surface a clear UI indicator when response is RAG-grounded vs pure Claude
+
+---
+
+### 3. Head to Head Uses Single Shared Retrieval — Not Isolated Per Persona
+
+**What's happening:**
+The Dual Analyst does two separate vector searches — `narrative` for The Tactician, `stats` for The Statistician. But Head to Head does a single combined retrieval for both players together, with no type filtering.
+
+**The problem:**
+This is architecturally inconsistent. The H2H comparison doesn't benefit from the same isolated context design as the Dual Analyst, so the context injected into Claude is a mix of narrative and stats docs rather than purpose-built per persona.
+
+**How to say it:**
+> *"There's an architectural inconsistency — the Dual Analyst does isolated retrieval per persona, but Head to Head does one combined search. I'd bring H2H in line with the same pattern: retrieve narrative context for the strengths/summary section and stats context for the rating/records section separately."*
+
+---
+
+### 4. No Feedback Loop on RAG Quality
+
+**What's happening:**
+There's no mechanism to know whether the retrieved context actually improved the response vs Claude answering from training data alone.
+
+**The problem:**
+If RAG retrieval silently returns low-quality docs, the response degrades with no signal — no logging of similarity scores, no A/B comparison, no quality threshold.
+
+**How to say it:**
+> *"Right now I have no feedback loop on whether RAG is helping. The tests I'm running with RAGAS will give me a baseline, but in production you'd want similarity scores logged per retrieval, a minimum threshold below which you fall back to Claude-only, and over time an eval dataset to track RAG quality regressions across deployments."*
+
+---
+
+### 5. Knowledge Base Has a Data Error
+
+**What's noticed:**
+In `seed.js`, Sinner appears in both the cricket player list label and the tennis docs. Minor but worth knowing in case it affects retrieval for cricket queries.
+
+---
+
+## Planned Next Iterations (Good to Mention)
+
+| Feature | What It Fixes |
+|---|---|
+| Authenticated sports APIs (API-Football, CricAPI, ATP) | Calculated H2H scores, not Claude's opinion |
+| Nightly ingestion pipeline | Static knowledge base — keeps RAG current |
+| Similarity score threshold + fallback | No feedback loop on RAG quality |
+| Isolated H2H retrieval per dimension | Architectural inconsistency vs Dual Analyst |
+| UI indicator: RAG-grounded vs Claude-only | User has no visibility into when RAG is active |
+| Minimum score threshold in rate limiter | Currently blocks by request count, not by cost |
+
+---
+
 ## Tech Stack Summary
 
 | Layer | Technology |
