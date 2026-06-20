@@ -7,20 +7,20 @@ const SPORTS = {
   football: {
     label: "Football", emoji: "⚽", color: "#00ff87",
     suggestions: ["Who would win: Peak Messi vs Peak Ronaldo in a one-on-one?", "Could Guardiola's City beat any club in history?", "Is the Premier League ruining international football?", "Which footballer has the highest football IQ ever?", "Would Ronaldinho thrive in modern football?"],
-    analystA: { Role: "Tactical Analyst", accent: "#00ff87", bg: "#0a1a12", persona: "A sharp tactical football analyst. Focus on formations, pressing systems, positional play, tactical patterns. Reference managers like Guardiola, Klopp, Ancelotti. Be confident, analytical, opinionated. Max 4 sentences." },
-    analystB: { Role: "Data & Stats", accent: "#ff6b35", bg: "#1a0f0a", persona: "A data-driven football analyst. Focus on xG, statistics, player metrics, historical data. Challenge conventional wisdom with numbers. Be precise, contrarian. Max 4 sentences." },
+    analystA: { Role: "The Tactician", accent: "#00ff87", bg: "#0a1a12", label: "Technique & Style" },
+    analystB: { Role: "The Statistician", accent: "#ff6b35", bg: "#1a0f0a", label: "Career Data & Numbers" },
   },
   cricket: {
     label: "Cricket", emoji: "🏏", color: "#4fc3f7",
     suggestions: ["Could Tendulkar average 60 in today's T20-obsessed era?", "Is Kohli mentally the toughest batter ever?", "Which is harder — facing Warne or Murali on a turning track?", "Would the 2007 World T20 team beat the 2024 T20 World Cup winners?", "Is DRS killing the art of umpiring?"],
-    analystA: { Role: "Technique Analyst", accent: "#4fc3f7", bg: "#0a1218", persona: "A cricket technique analyst. Focus on batting technique, bowling actions, footwork, shot selection, pitch reading. Reference legends like Tendulkar, Lara, McGrath. Be insightful and technical. Max 4 sentences." },
-    analystB: { Role: "Stats & Strategy", accent: "#e040fb", bg: "#140a18", persona: "A cricket statistician and strategist. Focus on batting averages, strike rates, bowling economy, match situations, team selection strategy. Use data to challenge popular opinions. Max 4 sentences." },
+    analystA: { Role: "The Tactician", accent: "#4fc3f7", bg: "#0a1218", label: "Technique & Style" },
+    analystB: { Role: "The Statistician", accent: "#e040fb", bg: "#140a18", label: "Career Data & Numbers" },
   },
   tennis: {
     label: "Tennis", emoji: "🎾", color: "#ffd700",
     suggestions: ["Could peak Federer beat Djokovic on any surface?", "Is Sinner already better than a young Federer?", "Would Serena Williams beat a top-10 men's player?", "Is clay the ultimate test of a true tennis champion?", "Which Slam is the hardest to win — and why?"],
-    analystA: { Role: "Game Analyst", accent: "#ffd700", bg: "#181200", persona: "A tennis game analyst. Focus on playing styles, court tactics, serve-return patterns, mental game, surface adaptation. Reference Federer, Nadal, Djokovic techniques. Be precise and tactical. Max 4 sentences." },
-    analystB: { Role: "Stats & History", accent: "#ff4081", bg: "#180008", persona: "A tennis historian and statistician. Focus on Slam records, head-to-head stats, ranking history, era comparisons. Use historical data to back arguments. Be opinionated and evidence-driven. Max 4 sentences." },
+    analystA: { Role: "The Tactician", accent: "#ffd700", bg: "#181200", label: "Technique & Style" },
+    analystB: { Role: "The Statistician", accent: "#ff4081", bg: "#180008", label: "Career Data & Numbers" },
   }
 };
 
@@ -36,14 +36,16 @@ async function askClaude(prompt, systemPrompt) {
       "anthropic-dangerous-direct-browser-access": "true"
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       max_tokens: 1000,
       system: systemPrompt,
       messages: [{ role: "user", content: prompt }]
     })
   });
   const data = await res.json();
-  console.log("API Response:", data);
+  if (!res.ok || data.type === "error") {
+    throw new Error(data.error?.message || `API error ${res.status}`);
+  }
   return data.content[0].text;
 }
 
@@ -112,18 +114,26 @@ const IS = { background:"#0e0e0e", border:"1px solid #1f1f1f", borderRadius:"4px
 function DualAnalyst({ sport, onSave }) {
   const [q, setQ] = useState(""); const [rA, setRA] = useState(""); const [rB, setRB] = useState("");
   const [lA, setLA] = useState(false); const [lB, setLB] = useState(false);
+  const [sourcesA, setSourcesA] = useState([]); const [sourcesB, setSourcesB] = useState([]);
   const [hist, setHist] = useState([]);
   const { analystA: aA, analystB: aB, suggestions, color } = sport;
 
   const ask = async (query) => {
     const qry = query || q; if (!qry.trim()) return;
-    setRA(""); setRB(""); setLA(true); setLB(true);
+    setRA(""); setRB(""); setLA(true); setLB(true); setSourcesA([]); setSourcesB([]);
     setHist(p => [{question:qry, time:new Date().toLocaleTimeString()}, ...p.slice(0,4)]);
     onSave(qry);
     try {
-      const [a,b] = await Promise.all([askClaude(qry, aA.persona), askClaude(qry, aB.persona)]);
-      setRA(a); setRB(b);
-    } catch { setRA("Connection error."); setRB("Connection error."); }
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/analyse`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: qry, sport: sport.label.toLowerCase() })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
+      setRA(data.tactician); setRB(data.statistician);
+      setSourcesA(data.sources?.tactician || []); setSourcesB(data.sources?.statistician || []);
+    } catch (e) { setRA(e.message || "Connection error."); setRB(e.message || "Connection error."); }
     setLA(false); setLB(false); setQ("");
   };
 
@@ -140,13 +150,24 @@ function DualAnalyst({ sport, onSave }) {
         ))}
       </div>
       <div style={{ display:"flex", gap:"16px", marginBottom:"28px" }}>
-        {[{a:aA,r:rA,l:lA,side:"left"},{a:aB,r:rB,l:lB,side:"right"}].map(({a,r,l,side}) => (
+        {[{a:aA,r:rA,l:lA,sources:sourcesA},{a:aB,r:rB,l:lB,sources:sourcesB}].map(({a,r,l,sources}) => (
           <div key={a.Role} style={{ flex:1, background:a.bg, border:`1px solid ${a.accent}22`, borderRadius:"8px", padding:"24px", position:"relative", minHeight:"240px", display:"flex", flexDirection:"column", overflow:"hidden" }}>
             <div style={{ position:"absolute", top:0, left:0, right:0, height:"2px", background:`linear-gradient(90deg,${a.accent},${a.accent}00)` }}/>
             <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"28px", color:a.accent, letterSpacing:"4px" }}>{a.Role}</div>
-            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:a.accent+"77", letterSpacing:"2px", marginBottom:"14px" }}>ANALYST</div>
-            <div style={{ height:"1px", background:`linear-gradient(90deg,${a.accent}33,transparent)`, marginBottom:"16px" }}/>
+            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:a.accent+"77", letterSpacing:"2px", marginBottom:"4px" }}>{a.label}</div>
+            <div style={{ height:"1px", background:`linear-gradient(90deg,${a.accent}33,transparent)`, marginBottom:"16px", marginTop:"10px" }}/>
             {l ? <LoadDots color={a.accent}/> : r ? <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", lineHeight:"1.9", color:"#ccc", margin:0 }}>{r}</p> : <p style={{ fontFamily:"'Space Mono',monospace", fontSize:"10px", color:a.accent+"22", margin:0 }}>AWAITING QUERY...</p>}
+            {sources?.length > 0 && (
+              <div style={{ marginTop:"16px", borderTop:`1px solid ${a.accent}11`, paddingTop:"12px" }}>
+                <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:a.accent+"55", letterSpacing:"2px", marginBottom:"8px" }}>RETRIEVED CONTEXT</div>
+                {sources.map((s,i) => (
+                  <div key={i} style={{ background:"#ffffff08", border:`1px solid ${a.accent}11`, borderRadius:"4px", padding:"8px 10px", marginBottom:"4px" }}>
+                    <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:a.accent+"66", letterSpacing:"1px" }}>{s.type?.toUpperCase()} · {s.sport}</span>
+                    <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"11px", color:"#444", margin:"4px 0 0", lineHeight:"1.5" }}>{s.snippet}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>

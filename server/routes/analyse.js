@@ -4,16 +4,16 @@ const { retrieveContext } = require("../rag");
 
 const PERSONAS = {
   football: {
-    analystA: "A sharp tactical football analyst. Focus on formations, pressing systems, positional play. Be confident, analytical, opinionated. Max 4 sentences.",
-    analystB: "A data-driven football analyst. Focus on xG, statistics, player metrics. Be precise, contrarian. Max 4 sentences."
+    tactician: "You are a tactical football analyst. Reason from technique, style, formations, pressing systems, and positional play. Cite specific movements, tendencies, and how players adapt tactically. Be confident and opinionated. Max 4 sentences.",
+    statistician: "You are a football data analyst. Reason strictly from the statistics and numbers provided in the context. Cite specific figures — xG, pass completion, goals, assists, per-90 metrics. Challenge conventional wisdom with data. Be precise. Max 4 sentences."
   },
   cricket: {
-    analystA: "A cricket technique analyst. Focus on batting technique, bowling actions, footwork. Be insightful and technical. Max 4 sentences.",
-    analystB: "A cricket statistician. Focus on batting averages, strike rates, bowling economy. Use data to challenge popular opinions. Max 4 sentences."
+    tactician: "You are a cricket technique analyst. Reason from batting stance, footwork, shot selection, bowling actions, and playing style. Describe how players move, their strengths against pace vs spin, and their special skills. Be technical and insightful. Max 4 sentences.",
+    statistician: "You are a cricket statistician. Reason strictly from the statistics provided in the context. Cite specific figures — batting averages, strike rates, economy rates, centuries, fifties, performance splits. Use data to challenge popular opinions. Max 4 sentences."
   },
   tennis: {
-    analystA: "A tennis game analyst. Focus on playing styles, court tactics, serve-return patterns. Be precise and tactical. Max 4 sentences.",
-    analystB: "A tennis historian and statistician. Focus on Slam records, head-to-head stats, ranking history. Be opinionated and evidence-driven. Max 4 sentences."
+    tactician: "You are a tennis game analyst. Reason from playing style, court tactics, serve-return patterns, surface adaptation, and mental game. Describe technique, movement, and how players construct points. Be precise and tactical. Max 4 sentences.",
+    statistician: "You are a tennis statistician and historian. Reason strictly from the statistics provided in the context. Cite specific figures — Grand Slam titles, head-to-head records, ranking history, win percentages by surface. Be evidence-driven. Max 4 sentences."
   }
 };
 
@@ -26,7 +26,7 @@ async function askClaude(prompt, systemPrompt) {
       "anthropic-version": "2023-06-01"
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       max_tokens: 500,
       system: systemPrompt,
       messages: [{ role: "user", content: prompt }]
@@ -45,17 +45,37 @@ router.post("/", async (req, res) => {
   if (!PERSONAS[sport]) return res.status(400).json({ error: "sport must be football, cricket or tennis" });
 
   const personas = PERSONAS[sport];
+
   try {
-    const context = await retrieveContext(question, sport);
-    const augmentedQuestion = context
-      ? `Reference context (use if relevant):\n${context}\n\nQuestion: ${question}`
+    // Each analyst retrieves from their own knowledge type
+    const [tacticianRAG, statisticianRAG] = await Promise.all([
+      retrieveContext(question, sport, "narrative"),
+      retrieveContext(question, sport, "stats"),
+    ]);
+
+    const tacticianPrompt = tacticianRAG.context
+      ? `Reference context (technique & style):\n${tacticianRAG.context}\n\nQuestion: ${question}`
       : question;
 
-    const [analystA, analystB] = await Promise.all([
-      askClaude(augmentedQuestion, personas.analystA),
-      askClaude(augmentedQuestion, personas.analystB)
+    const statisticianPrompt = statisticianRAG.context
+      ? `Reference context (statistics & data):\n${statisticianRAG.context}\n\nQuestion: ${question}`
+      : question;
+
+    const [tactician, statistician] = await Promise.all([
+      askClaude(tacticianPrompt, personas.tactician),
+      askClaude(statisticianPrompt, personas.statistician),
     ]);
-    res.json({ question, sport, analystA, analystB });
+
+    res.json({
+      question,
+      sport,
+      tactician,
+      statistician,
+      sources: {
+        tactician: tacticianRAG.sources,
+        statistician: statisticianRAG.sources,
+      },
+    });
   } catch (err) {
     res.status(502).json({ error: "Failed to reach Claude API", detail: err.message });
   }
