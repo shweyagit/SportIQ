@@ -26,29 +26,6 @@ const SPORTS = {
 
 //─── API HELPERS ─────────────────────────────────────────────────────────────
 
-async function askClaude(prompt, systemPrompt) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": process.env.REACT_APP_ANTHROPIC_KEY,
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true"
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: 1000,
-      system: systemPrompt,
-      messages: [{ role: "user", content: prompt }]
-    })
-  });
-  const data = await res.json();
-  if (!res.ok || data.type === "error") {
-    throw new Error(data.error?.message || `API error ${res.status}`);
-  }
-  return data.content[0].text;
-}
-
 async function getWikiImage(title) {
   const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
   const data = await res.json();
@@ -124,15 +101,34 @@ function DualAnalyst({ sport, onSave }) {
     setHist(p => [{question:qry, time:new Date().toLocaleTimeString()}, ...p.slice(0,4)]);
     onSave(qry);
     try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/analyse`, {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/analyse/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: qry, sport: sport.label.toLowerCase() })
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
-      setRA(data.tactician); setRB(data.statistician);
-      setSourcesA(data.sources?.tactician || []); setSourcesB(data.sources?.statistician || []);
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || `Server error ${res.status}`); }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const raw = line.slice(6).trim();
+          if (!raw) continue;
+          try {
+            const event = JSON.parse(raw);
+            if (event.type === "tactician") { setLA(false); setRA(p => p + event.token); }
+            else if (event.type === "statistician") { setLB(false); setRB(p => p + event.token); }
+            else if (event.type === "sources") { setSourcesA(event.tactician||[]); setSourcesB(event.statistician||[]); }
+            else if (event.type === "error") throw new Error(event.message);
+          } catch {}
+        }
+      }
     } catch (e) { setRA(e.message || "Connection error."); setRB(e.message || "Connection error."); }
     setLA(false); setLB(false); setQ("");
   };
@@ -196,14 +192,17 @@ function PlayerProfile({ sport, onSave }) {
   const search = async () => {
     if (!s.trim()) return; setLoading(true); setProfile(null); setImage(null);
     try {
-      const data = await askClaude(`Profile of ${s} as a ${label} player.`, `You are a ${label} encyclopedia. Respond ONLY with raw JSON (no markdown, no backticks): {"name":"full name","nationality":"country","position":"position or role","currentTeam":"current team or retired","age":"age","careerSummary":"2-3 sentence summary","achievements":["a1","a2","a3","a4"],"keyStats":["s1","s2","s3"],"legacyQuote":"one punchy sentence on legacy"}`);
-      const parsed = JSON.parse(data.replace(/```json|```/g,"").trim());
-      setProfile(parsed);
-      onSave(parsed.name);
-      // Use the canonical full name Claude returned for a more accurate Wikipedia lookup
-      const img = await getPlayerImage(parsed.name);
-      setImage(img);
-    } catch { setProfile({error:"Could not load profile."}); }
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/player`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: s, sport: label.toLowerCase() })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
+      setProfile(data);
+      onSave(data.name);
+      setImage(data.image);
+    } catch (e) { setProfile({error: e.message || "Could not load profile."}); }
     setLoading(false);
   };
 
@@ -278,14 +277,18 @@ function HeadToHead({ sport, onSave }) {
   const compare = async () => {
     if (!p1.trim()||!p2.trim()) return; setLoading(true); setResult(null); setImgs([null,null]);
     try {
-      const data = await askClaude(`Compare ${p1} vs ${p2} as ${label} players.`, `You are a ${label} analyst. Respond ONLY with raw JSON (no markdown): {"player1":{"name":"${p1}","strengths":["s1","s2","s3"],"weaknesses":["w1","w2"],"rating":"X/10","summary":"2 sentences"},"player2":{"name":"${p2}","strengths":["s1","s2","s3"],"weaknesses":["w1","w2"],"rating":"X/10","summary":"2 sentences"},"verdict":"2-3 sentence verdict","winner":"name"}`);
-      const parsed = JSON.parse(data.replace(/```json|```/g,"").trim());
-      setResult(parsed);
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/compare`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ player1: p1, player2: p2, sport: label.toLowerCase() })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
+      setResult(data);
       onSave(p1, p2);
-      // Use canonical names from Claude's response for accurate Wikipedia image lookup
-      const [img1,img2] = await Promise.all([getPlayerImage(parsed.player1.name), getPlayerImage(parsed.player2.name)]);
+      const [img1,img2] = await Promise.all([getPlayerImage(data.player1.name), getPlayerImage(data.player2.name)]);
       setImgs([img1,img2]);
-    } catch { setResult({error:"Comparison failed."}); }
+    } catch (e) { setResult({error: e.message || "Comparison failed."}); }
     setLoading(false);
   };
 
@@ -351,13 +354,18 @@ function Timeline({ sport, onSave }) {
   const search = async () => {
     if (!s.trim()) return; setLoading(true); setTimeline(null); setImage(null);
     try {
-      const data = await askClaude(`Career timeline of ${s} in ${label}.`, `You are a ${label} historian. Respond ONLY with raw JSON (no markdown): {"name":"player name","events":[{"year":"YYYY","event":"short description","type":"debut|transfer|trophy|milestone|retirement"}]} Include 6-10 key career moments. For cricket/tennis use transfer type for team/tour changes.`);
-      const parsed = JSON.parse(data.replace(/```json|```/g,"").trim());
-      setTimeline(parsed);
-      onSave(parsed.name);
-      const img = await getPlayerImage(parsed.name);
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/timeline`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: s, sport: label.toLowerCase() })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
+      setTimeline(data);
+      onSave(data.name);
+      const img = await getPlayerImage(data.name);
       setImage(img);
-    } catch { setTimeline({error:"Could not load timeline."}); }
+    } catch (e) { setTimeline({error: e.message || "Could not load timeline."}); }
     setLoading(false);
   };
 

@@ -81,4 +81,93 @@ router.post("/", async (req, res) => {
   }
 });
 
+// POST /api/analyse/stream — SSE streaming, one token at a time per analyst
+router.post("/stream", async (req, res) => {
+  const { question, sport = "football" } = req.body;
+  if (!question) return res.status(400).json({ error: "question is required" });
+  if (!PERSONAS[sport]) return res.status(400).json({ error: "sport must be football, cricket or tennis" });
+
+  const start = Date.now();
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
+  try {
+    const [tacticianRAG, statisticianRAG] = await Promise.all([
+      retrieveContext(question, sport, "narrative"),
+      retrieveContext(question, sport, "stats"),
+    ]);
+
+    console.log(`[RAG] ${sport} | tactician=${tacticianRAG.sources.length} docs, statistician=${statisticianRAG.sources.length} docs`);
+    send({ type: "sources", tactician: tacticianRAG.sources, statistician: statisticianRAG.sources });
+
+    const makePrompt = (ctx, label) => ctx
+      ? `Reference context (${label}):\n${ctx}\n\nQuestion: ${question}`
+      : question;
+
+    async function streamAnalyst(systemPrompt, contextPrompt, tokenType) {
+      const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": process.env.ANTHROPIC_KEY,
+          "anthropic-version": "2023-06-01"
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 500,
+          stream: true,
+          system: systemPrompt,
+          messages: [{ role: "user", content: contextPrompt }]
+        })
+      });
+
+      if (!claudeRes.ok) {
+        const err = await claudeRes.json();
+        throw new Error(err.error?.message || `Claude error ${claudeRes.status}`);
+      }
+
+      const reader = claudeRes.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const raw = line.slice(6).trim();
+          if (raw === "[DONE]") return;
+          try {
+            const event = JSON.parse(raw);
+            if (event.type === "content_block_delta" && event.delta?.type === "text_delta") {
+              send({ type: tokenType, token: event.delta.text });
+            }
+          } catch {}
+        }
+      }
+    }
+
+    await Promise.all([
+      streamAnalyst(PERSONAS[sport].tactician, makePrompt(tacticianRAG.context, "technique & style"), "tactician"),
+      streamAnalyst(PERSONAS[sport].statistician, makePrompt(statisticianRAG.context, "statistics & data"), "statistician"),
+    ]);
+
+    send({ type: "done" });
+    console.log(`[STREAM] ${sport} | ${Date.now() - start}ms`);
+  } catch (err) {
+    console.error(`[STREAM] Error: ${err.message}`);
+    send({ type: "error", message: err.message });
+  }
+
+  res.end();
+});
+
 module.exports = router;

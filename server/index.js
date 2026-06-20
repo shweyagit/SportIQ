@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const rateLimit = require("express-rate-limit");
 const swaggerUi = require("swagger-ui-express");
 const YAML = require("yamljs");
 const path = require("path");
@@ -8,6 +9,24 @@ const path = require("path");
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// ── Request logging ───────────────────────────────────────────────────────────
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} ${res.statusCode} ${Date.now() - start}ms`);
+  });
+  next();
+});
+
+// ── Rate limiting (30 req / 15 min per IP on AI endpoints) ───────────────────
+const aiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests, please try again in a few minutes." }
+});
 
 // ── Swagger UI ────────────────────────────────────────────────────────────────
 const swaggerDoc = YAML.load(path.join(__dirname, "swagger.yaml"));
@@ -26,10 +45,10 @@ app.get("/postman-collection", (req, res) => {
 });
 
 // ── Routes ────────────────────────────────────────────────────────────────────
-app.use("/api/analyse",  require("./routes/analyse"));
-app.use("/api/player",   require("./routes/player"));
-app.use("/api/compare",  require("./routes/compare"));
-app.use("/api/timeline", require("./routes/timeline"));
+app.use("/api/analyse",  aiLimiter, require("./routes/analyse"));
+app.use("/api/player",   aiLimiter, require("./routes/player"));
+app.use("/api/compare",  aiLimiter, require("./routes/compare"));
+app.use("/api/timeline", aiLimiter, require("./routes/timeline"));
 app.use("/api/history",  require("./routes/history"));
 app.use("/api/ingest",   require("./routes/ingest"));
 
