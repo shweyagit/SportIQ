@@ -30,8 +30,9 @@ Analyst responses are grounded in a curated knowledge base using Retrieval-Augme
 
 | Source | Used For |
 |---|---|
+| Anthropic Claude | AI analyst responses (Tactician & Statistician) |
 | Voyage AI | Generating text embeddings for RAG |
 | Supabase (pgvector) | Storing and querying vector embeddings |
-| Anthropic Claude | AI analyst responses |
 | TheSportsDB | Player images and sport metadata |
-| Wikipedia REST API | Player bio and career summaries |
+| Wikipedia REST API | Player bio, career summaries, and images |
+| DuckDuckGo API | Fallback player image lookup |
