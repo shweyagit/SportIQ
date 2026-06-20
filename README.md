@@ -14,17 +14,23 @@ An AI-powered sports debate platform for Football, Cricket, and Tennis.
 
 ## RAG Architecture
 
-Analyst responses are grounded in a curated knowledge base using Retrieval-Augmented Generation (RAG):
+Each analyst gets their own separate context retrieved from a curated knowledge base — The Tactician and The Statistician never share the same documents.
 
-1. **Knowledge Base** — Hand-curated documents covering technique, style, stats, and career data for top players across Football, Cricket, and Tennis. Two document types:
-   - `narrative` — technique, biography, tactical context (feeds The Tactician)
-   - `stats` — career numbers, records, splits (feeds The Statistician)
+### Knowledge Base
+Two document types are stored, each sourced differently:
 
-2. **Embeddings** — Each document is embedded using **Voyage AI** (`voyage-large-2` model) and stored in **Supabase** with the `pgvector` extension
+- **`narrative` docs** — technique, playing style, biography, tactical context. Sourced from Wikipedia summaries and hand-curated descriptions of how players move, think, and play. These feed **The Tactician**.
+- **`stats` docs** — career numbers, records, tournament stats, head-to-head splits. Sourced from verified career statistics across all formats/competitions. These feed **The Statistician**.
 
-3. **Retrieval** — When a question is asked, it is embedded and a vector similarity search (`match_sports_docs` RPC) retrieves the top 3 most relevant documents, filtered by sport
+Covers top players across Football, Cricket, and Tennis. New players are also auto-ingested from **TheSportsDB** when first looked up.
 
-4. **Augmented Prompt** — Retrieved context is injected into the Claude system prompt before the analysts respond, grounding answers in real data rather than hallucination
+### How It Works
+
+1. **Embed** — When a question is asked, it is converted into a vector embedding using **Voyage AI** (`voyage-large-2`)
+2. **Retrieve (x2)** — Two parallel vector similarity searches run against **Supabase pgvector** (`match_sports_docs` RPC):
+   - one filtered to `type: narrative` → context for The Tactician
+   - one filtered to `type: stats` → context for The Statistician
+3. **Augment** — Each analyst's Claude system prompt is injected with only their relevant context before generating a response, grounding answers in real data
 
 ## Data Sources
 
