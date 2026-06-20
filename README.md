@@ -2,73 +2,36 @@
 
 **Live App:** https://sport-iq-git-main-shwetas-projects-fd91a33a.vercel.app/
 
-A multi-sport AI platform powered by Claude. Supports Football, Cricket and Tennis.
+An AI-powered sports debate platform for Football, Cricket, and Tennis.
 
-## Features
-- **Dual Analyst** — Two AI analysts debate any sports question simultaneously
-- **Player Profile** — Career summary, achievements, stats + Wikipedia photo
-- **Head to Head** — Compare two players side by side
-- **Timeline** — Visual career journey with key milestones
-- **RAG Architecture** — Supabase pgvector + Voyage AI for context-aware responses
-- **Auth** — Email/password and Google OAuth via Supabase
+## What's Built
 
-## URLs
+- **Dual AI Analysts** — Two Claude-powered personas debate any sports question: The Tactician (technique & style) vs The Statistician (data & numbers)
+- **Player Lookup** — Player bio, career stats, and photo pulled from TheSportsDB and Wikipedia
+- **Head to Head** — Side-by-side comparison of two players
+- **Career Timeline** — Visual milestone journey for any player
+- **Search History** — Saved per user via Supabase auth (email/password + Google OAuth)
 
-| Service | URL |
+## RAG Architecture
+
+Analyst responses are grounded in a curated knowledge base using Retrieval-Augmented Generation (RAG):
+
+1. **Knowledge Base** — Hand-curated documents covering technique, style, stats, and career data for top players across Football, Cricket, and Tennis. Two document types:
+   - `narrative` — technique, biography, tactical context (feeds The Tactician)
+   - `stats` — career numbers, records, splits (feeds The Statistician)
+
+2. **Embeddings** — Each document is embedded using **Voyage AI** (`voyage-large-2` model) and stored in **Supabase** with the `pgvector` extension
+
+3. **Retrieval** — When a question is asked, it is embedded and a vector similarity search (`match_sports_docs` RPC) retrieves the top 3 most relevant documents, filtered by sport
+
+4. **Augmented Prompt** — Retrieved context is injected into the Claude system prompt before the analysts respond, grounding answers in real data rather than hallucination
+
+## Data Sources
+
+| Source | Used For |
 |---|---|
-| Frontend | https://sport-iq-git-main-shwetas-projects-fd91a33a.vercel.app/ |
-| Backend API | https://sportiq-voxv.onrender.com |
-| API Docs | https://sportiq-voxv.onrender.com/api-docs |
-
-## Setup
-
-### Prerequisites
-- Node.js 16+
-- Anthropic API key
-- Supabase project
-- Voyage AI key
-
-### Frontend
-```bash
-npm install
-npm start
-```
-
-Opens at http://localhost:3000
-
-### Backend
-```bash
-cd server
-npm install
-npm run dev
-```
-
-Runs at http://localhost:4000
-
-### Environment Variables
-
-**Frontend (`.env`):**
-```
-REACT_APP_ANTHROPIC_KEY=
-REACT_APP_SUPABASE_URL=
-REACT_APP_SUPABASE_ANON_KEY=
-REACT_APP_API_URL=http://localhost:4000
-```
-
-**Backend (`server/.env`):**
-```
-ANTHROPIC_KEY=
-SUPABASE_URL=
-SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_KEY=
-VOYAGE_API_KEY=
-```
-
-## Built With
-- React 18
-- Claude API (claude-sonnet-4-6)
-- Node.js + Express
-- Supabase (PostgreSQL + pgvector)
-- Voyage AI (embeddings)
-- Wikipedia REST API & TheSportsDB (player data)
-- Vercel (frontend) + Render (backend)
+| Voyage AI | Generating text embeddings for RAG |
+| Supabase (pgvector) | Storing and querying vector embeddings |
+| Anthropic Claude | AI analyst responses |
+| TheSportsDB | Player images and sport metadata |
+| Wikipedia REST API | Player bio and career summaries |
