@@ -514,6 +514,11 @@ export default function App() {
   const sport = SPORTS[sportKey];
 
   // Listen for auth state changes
+  // Warm up the Render backend on app load to avoid cold start delay
+  useEffect(() => {
+    fetch(`${process.env.REACT_APP_API_URL}/api/health`).catch(() => {});
+  }, []);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
