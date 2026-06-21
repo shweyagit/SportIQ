@@ -13,6 +13,7 @@ async function askClaude(prompt, systemPrompt) {
     body: JSON.stringify({
       model: "claude-sonnet-4-6",
       max_tokens: 1000,
+      temperature: 0,
       system: systemPrompt,
       messages: [{ role: "user", content: prompt }]
     })
@@ -27,18 +28,27 @@ router.post("/", async (req, res) => {
   const { player1, player2, sport = "football" } = req.body;
   if (!player1 || !player2) return res.status(400).json({ error: "player1 and player2 are required" });
 
+  // Sort alphabetically so "Messi vs Ronaldo" and "Ronaldo vs Messi" always produce the same prompt
+  const [pA, pB] = [player1, player2].sort();
+
   try {
-    const context = await retrieveContext(`${player1} ${player2} ${sport} comparison`, sport);
+    const { context } = await retrieveContext(`${pA} ${pB} ${sport} comparison`, sport);
     const prompt = context
-      ? `Reference context (use if relevant):\n${context}\n\nCompare ${player1} vs ${player2} as ${sport} players.`
-      : `Compare ${player1} vs ${player2} as ${sport} players.`;
+      ? `Reference context (use if relevant):\n${context}\n\nCompare ${pA} vs ${pB} as ${sport} players.`
+      : `Compare ${pA} vs ${pB} as ${sport} players.`;
 
     const raw = await askClaude(
       prompt,
-      `You are a ${sport} analyst. Respond ONLY with raw JSON: {"player1":{"name":"${player1}","strengths":["s1","s2","s3"],"weaknesses":["w1","w2"],"rating":"X/10","summary":"2 sentences"},"player2":{"name":"${player2}","strengths":["s1","s2","s3"],"weaknesses":["w1","w2"],"rating":"X/10","summary":"2 sentences"},"verdict":"2-3 sentence verdict","winner":"name"}`
+      `You are a ${sport} analyst. Respond ONLY with raw JSON: {"player1":{"name":"${pA}","strengths":["s1","s2","s3"],"weaknesses":["w1","w2"],"rating":"X/10","summary":"2 sentences"},"player2":{"name":"${pB}","strengths":["s1","s2","s3"],"weaknesses":["w1","w2"],"rating":"X/10","summary":"2 sentences"},"verdict":"2-3 sentence verdict","winner":"name"}`
     );
     const result = JSON.parse(raw.replace(/```json|```/g, "").trim());
-    res.json({ sport, ...result });
+
+    // Restore original order in response so UI shows players as the user typed them
+    const ordered = player1.toLowerCase() === pA.toLowerCase()
+      ? result
+      : { ...result, player1: result.player2, player2: result.player1 };
+
+    res.json({ sport, ...ordered });
   } catch (err) {
     res.status(502).json({ error: "Comparison failed", detail: err.message });
   }
