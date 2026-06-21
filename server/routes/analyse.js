@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { retrieveContext } = require("../rag");
+const { classifyIntent, INTENT_TYPES } = require("../services/intentClassifier");
 
 const PERSONAS = {
   football: {
@@ -97,17 +98,42 @@ router.post("/stream", async (req, res) => {
   const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
   try {
-    const [tacticianRAG, statisticianRAG] = await Promise.all([
-      retrieveContext(question, sport, "narrative"),
-      retrieveContext(question, sport, "stats"),
-    ]);
+    // Step 1 — classify intent to decide retrieval strategy
+    const { intent, reason } = await classifyIntent(question, sport);
+    send({ type: "intent", intent, reason });
 
-    console.log(`[RAG] ${sport} | tactician=${tacticianRAG.sources.length} docs, statistician=${statisticianRAG.sources.length} docs`);
+    // Step 2 — retrieve based on intent (Smart RAG routing)
+    let tacticianRAG   = { context: "", sources: [], belowThreshold: false };
+    let statisticianRAG = { context: "", sources: [], belowThreshold: false };
+
+    if (intent === INTENT_TYPES.OPINION) {
+      // Opinion questions don't need retrieval — Claude reasons from its own knowledge
+      console.log(`[RAG] Skipping retrieval for opinion question`);
+    } else if (intent === INTENT_TYPES.STATS) {
+      // Only retrieve stats docs — no need for narrative context
+      statisticianRAG = await retrieveContext(question, sport, "stats");
+    } else if (intent === INTENT_TYPES.TECHNIQUE) {
+      // Only retrieve narrative docs — no need for stats context
+      tacticianRAG = await retrieveContext(question, sport, "narrative");
+    } else {
+      // comparison or general — retrieve both in parallel
+      [tacticianRAG, statisticianRAG] = await Promise.all([
+        retrieveContext(question, sport, "narrative"),
+        retrieveContext(question, sport, "stats"),
+      ]);
+    }
+
+    console.log(`[RAG] ${sport} | intent=${intent} | tactician=${tacticianRAG.sources.length} docs, statistician=${statisticianRAG.sources.length} docs`);
     send({ type: "sources", tactician: tacticianRAG.sources, statistician: statisticianRAG.sources });
 
-    const makePrompt = (ctx, label) => ctx
-      ? `Reference context (${label}):\n${ctx}\n\nQuestion: ${question}`
-      : question;
+    // Step 3 — build prompts, explicitly flagging when no quality context was found
+    const makePrompt = (ctx, belowThreshold, label) => {
+      if (intent === INTENT_TYPES.OPINION) return `Opinion question — reason from your own expertise.\n\nQuestion: ${question}`;
+      if (belowThreshold) return `No relevant context was found in the knowledge base for this question. Answer from your own expertise.\n\nQuestion: ${question}`;
+      return ctx
+        ? `Reference context (${label}):\n${ctx}\n\nQuestion: ${question}`
+        : `Question: ${question}`;
+    };
 
     async function streamAnalyst(systemPrompt, contextPrompt, tokenType) {
       const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
@@ -156,8 +182,8 @@ router.post("/stream", async (req, res) => {
     }
 
     await Promise.all([
-      streamAnalyst(PERSONAS[sport].tactician, makePrompt(tacticianRAG.context, "technique & style"), "tactician"),
-      streamAnalyst(PERSONAS[sport].statistician, makePrompt(statisticianRAG.context, "statistics & data"), "statistician"),
+      streamAnalyst(PERSONAS[sport].tactician, makePrompt(tacticianRAG.context, tacticianRAG.belowThreshold, "technique & style"), "tactician"),
+      streamAnalyst(PERSONAS[sport].statistician, makePrompt(statisticianRAG.context, statisticianRAG.belowThreshold, "statistics & data"), "statistician"),
     ]);
 
     send({ type: "done" });

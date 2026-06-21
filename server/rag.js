@@ -30,10 +30,13 @@ async function storeDocument(content, metadata = {}, sport = "general", type = "
   if (error) throw new Error(`Supabase insert error: ${error.message}`);
 }
 
-// Returns { context, sources } — context is injected into the prompt,
-// sources are surfaced in the UI to prove RAG is working.
+// Minimum similarity score to use a retrieved doc — below this, context is too weak to be useful
+const SIMILARITY_THRESHOLD = 0.65;
+
+// Returns { context, sources, belowThreshold } — context is injected into the prompt,
+// sources are surfaced in the UI, belowThreshold signals when retrieval quality was poor.
 async function retrieveContext(query, sport = null, type = null, limit = 3) {
-  if (!supabase || !process.env.VOYAGE_API_KEY) return { context: "", sources: [] };
+  if (!supabase || !process.env.VOYAGE_API_KEY) return { context: "", sources: [], belowThreshold: false };
 
   try {
     const embedding = await embedText(query);
@@ -43,17 +46,33 @@ async function retrieveContext(query, sport = null, type = null, limit = 3) {
       match_count: limit,
       match_type: type,
     });
-    if (error || !data?.length) return { context: "", sources: [] };
+    if (error || !data?.length) return { context: "", sources: [], belowThreshold: false };
+
+    // Log similarity scores for observability
+    data.forEach(d => console.log(`[RAG] similarity=${d.similarity.toFixed(3)} type=${d.type} sport=${d.sport}`));
+
+    // Filter out docs below quality threshold
+    const qualified = data.filter(d => d.similarity >= SIMILARITY_THRESHOLD);
+
+    if (!qualified.length) {
+      console.log(`[RAG] All docs below threshold (${SIMILARITY_THRESHOLD}) — skipping context injection`);
+      return { context: "", sources: [], belowThreshold: true };
+    }
+
+    console.log(`[RAG] ${qualified.length}/${data.length} docs passed threshold`);
+
     return {
-      context: data.map((d) => d.content).join("\n\n---\n\n"),
-      sources: data.map((d) => ({
+      context: qualified.map((d) => d.content).join("\n\n---\n\n"),
+      sources: qualified.map((d) => ({
         snippet: d.content.slice(0, 120) + "...",
         sport: d.sport,
         type: d.type,
+        similarity: parseFloat(d.similarity.toFixed(3)),
       })),
+      belowThreshold: false,
     };
   } catch {
-    return { context: "", sources: [] };
+    return { context: "", sources: [], belowThreshold: false };
   }
 }
 
