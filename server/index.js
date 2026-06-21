@@ -7,6 +7,7 @@ const YAML = require("yamljs");
 const path = require("path");
 
 const app = express();
+app.set("trust proxy", 1); // required on Render/Heroku — reads real client IP from X-Forwarded-For
 app.use(cors());
 app.use(express.json());
 
