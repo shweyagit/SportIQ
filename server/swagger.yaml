@@ -3,41 +3,62 @@ info:
   title: SportIQ AI Platform API
   description: |
     REST API for the SportIQ AI-powered multi-sport analysis platform.
-    Powered by Claude (Anthropic) for intelligent sports insights.
+    Powered by Claude (Anthropic) + Voyage AI embeddings + Supabase pgvector.
+
+    ## Rate Limiting
+    AI endpoints are rate-limited to **30 requests per 15 minutes per IP**.
+    Applies to: `/api/analyse`, `/api/player`, `/api/compare`, `/api/timeline`.
 
     ## Authentication
-    Protected endpoints require a Supabase JWT token in the `Authorization` header:
+    Protected endpoints require a Supabase JWT token:
     ```
     Authorization: Bearer <your_supabase_token>
     ```
-  version: 1.0.0
+
+    ## Smart RAG Architecture
+    The `/api/analyse/stream` endpoint uses intent classification before retrieval:
+    - **opinion** → retrieval skipped entirely
+    - **player_stats** → stats documents only
+    - **player_technique** → narrative documents only
+    - **comparison / general** → both document types in parallel
+
+    Retrieval uses a similarity threshold of **0.65** — docs below threshold are discarded
+    and Claude is told explicitly that no relevant context was found.
+  version: 2.0.0
   contact:
-    name: SportIQ API Support
+    name: SportIQ API
 
 servers:
+  - url: https://sportiq-voxv.onrender.com
+    description: Production (Render)
   - url: http://localhost:4000
-    description: Local development server
+    description: Local development
 
 tags:
   - name: Health
     description: API health check
   - name: Analyse
-    description: AI-powered dual analyst debate
+    description: AI dual analyst — Smart RAG + SSE streaming
   - name: Player
     description: Player profile and image lookup
   - name: Compare
-    description: Head-to-head player comparison
+    description: Head-to-head player comparison with position-aware scoring
   - name: Timeline
     description: Career timeline generation
   - name: History
     description: User search history (requires auth)
+  - name: Ingest
+    description: RAG knowledge base management
 
 paths:
+
+  # ── Health ──────────────────────────────────────────────────────────────────
+
   /api/health:
     get:
       tags: [Health]
       summary: Health check
-      description: Returns API status and timestamp
+      description: Returns API status and timestamp. Use this to warm up the Render instance.
       responses:
         "200":
           description: API is healthy
@@ -49,15 +70,122 @@ paths:
                 status: ok
                 service: SportIQ API
                 version: 1.0.0
-                timestamp: "2026-03-11T10:00:00.000Z"
+                timestamp: "2026-01-15T10:00:00.000Z"
+
+  # ── Analyse ─────────────────────────────────────────────────────────────────
+
+  /api/analyse/stream:
+    post:
+      tags: [Analyse]
+      summary: Dual analyst — SSE streaming (recommended)
+      description: |
+        Sends a sports question through the Smart RAG pipeline and streams responses
+        from two AI personas simultaneously as Server-Sent Events.
+
+        **Pipeline:**
+        1. Classify intent via Claude Haiku (fast, cheap)
+        2. Route retrieval based on intent (Smart RAG)
+        3. Filter retrieved docs by similarity threshold (≥ 0.65)
+        4. Stream both analysts simultaneously via SSE
+
+        **Event order:**
+        ```
+        intent → sources → tactician tokens (interleaved with) statistician tokens → done
+        ```
+
+        **Consume with:**
+        ```python
+        import httpx, json
+        with httpx.stream("POST", ".../api/analyse/stream",
+                          json={"question": "...", "sport": "cricket"}, timeout=60) as r:
+            for line in r.iter_lines():
+                if line.startswith("data: "):
+                    event = json.loads(line[6:])
+        ```
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalyseRequest"
+            examples:
+              comparison:
+                summary: Player comparison (football)
+                value:
+                  question: "Who is the better dribbler, Messi or Ronaldo?"
+                  sport: football
+              stats:
+                summary: Stats question (cricket)
+                value:
+                  question: "Is Bumrah the best death bowler in cricket history?"
+                  sport: cricket
+              opinion:
+                summary: Opinion question — retrieval skipped
+                value:
+                  question: "Is the Premier League ruining international football?"
+                  sport: football
+              technique:
+                summary: Technique question (tennis)
+                value:
+                  question: "How does Sinner's backhand compare to Djokovic's?"
+                  sport: tennis
+      responses:
+        "200":
+          description: |
+            SSE stream. Content-Type: text/event-stream.
+            Each line is `data: <json>\n\n`.
+          content:
+            text/event-stream:
+              schema:
+                $ref: "#/components/schemas/StreamEvent"
+              examples:
+                intent_event:
+                  summary: Intent classification event (first)
+                  value:
+                    type: intent
+                    intent: comparison
+                    reason: "Comparing two players against each other"
+                sources_event:
+                  summary: Sources event (after retrieval)
+                  value:
+                    type: sources
+                    tactician:
+                      - snippet: "Messi's dribbling relies on an extremely low centre of gravity..."
+                        sport: football
+                        type: narrative
+                        similarity: 0.821
+                    statistician:
+                      - snippet: "Lionel Messi career stats: 800+ club goals, 8 Ballon d'Or..."
+                        sport: football
+                        type: stats
+                        similarity: 0.798
+                token_event:
+                  summary: Analyst token event (streaming)
+                  value:
+                    type: tactician
+                    token: "Messi's"
+                done_event:
+                  summary: Done event (last)
+                  value:
+                    type: done
+                error_event:
+                  summary: Error event
+                  value:
+                    type: error
+                    message: "Claude error 529"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /api/analyse:
     post:
       tags: [Analyse]
-      summary: Dual analyst debate
+      summary: Dual analyst — single JSON response
       description: |
-        Sends a sports question to two AI analysts with different perspectives.
-        Analyst A focuses on tactics/technique, Analyst B focuses on data/stats.
+        Same as `/api/analyse/stream` but returns a single JSON response
+        instead of SSE tokens. Use for testing or non-streaming clients.
+        Does NOT include intent classification in the response.
       requestBody:
         required: true
         content:
@@ -75,28 +203,55 @@ paths:
                 value:
                   question: "Is Virat Kohli mentally the toughest batter ever?"
                   sport: cricket
-              tennis:
-                summary: Tennis question
-                value:
-                  question: "Could peak Federer beat Djokovic on any surface?"
-                  sport: tennis
       responses:
         "200":
-          description: Dual analyst responses
+          description: Dual analyst responses with sources
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AnalyseResponse"
+              example:
+                question: "Who is the better dribbler, Messi or Ronaldo?"
+                sport: football
+                tactician: "Messi's low centre of gravity and rapid changes of direction..."
+                statistician: "With 474 La Liga goals in 520 appearances, Messi's output..."
+                sources:
+                  tactician:
+                    - snippet: "Messi's dribbling relies on an extremely low centre of gravity..."
+                      sport: football
+                      type: narrative
+                      similarity: 0.821
+                  statistician:
+                    - snippet: "Lionel Messi career stats: 800+ club goals..."
+                      sport: football
+                      type: stats
+                      similarity: 0.798
         "400":
           $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/RateLimited"
         "502":
           $ref: "#/components/responses/ClaudeError"
+
+  # ── Player ──────────────────────────────────────────────────────────────────
 
   /api/player:
     post:
       tags: [Player]
       summary: Get player profile
-      description: Returns a structured AI-generated player profile with career summary, achievements, stats and legacy.
+      description: |
+        Returns a structured player profile. Factual fields come from **TheSportsDB**
+        (not Claude) to ensure accuracy:
+        - `name`, `nationality`, `position`, `currentTeam` — from TheSportsDB
+        - `age` — calculated from `dateBorn` field, never generated by Claude
+        - `image` — from TheSportsDB, falls back to Wikipedia
+        - `careerSummary`, `achievements`, `keyStats`, `legacyQuote` — Claude generation
+
+        Also auto-ingests the player into the RAG knowledge base in the background
+        if not already present.
+
+        Returns `404` if the player is not found in TheSportsDB or if the sport
+        doesn't match (e.g. searching for a cricketer under `sport: football`).
       requestBody:
         required: true
         content:
@@ -104,38 +259,72 @@ paths:
             schema:
               $ref: "#/components/schemas/PlayerRequest"
             examples:
+              bumrah:
+                summary: Jasprit Bumrah (cricket)
+                value:
+                  name: Jasprit Bumrah
+                  sport: cricket
               messi:
-                summary: Lionel Messi
+                summary: Lionel Messi (football)
                 value:
                   name: Lionel Messi
                   sport: football
-              kohli:
-                summary: Virat Kohli
+              sinner:
+                summary: Jannik Sinner (tennis)
                 value:
-                  name: Virat Kohli
-                  sport: cricket
-              federer:
-                summary: Roger Federer
-                value:
-                  name: Roger Federer
+                  name: Jannik Sinner
                   sport: tennis
       responses:
         "200":
-          description: Player profile with image
+          description: Player profile
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/PlayerResponse"
+              example:
+                name: Jasprit Bumrah
+                nationality: Indian
+                position: Bowler
+                currentTeam: India
+                age: 30
+                careerSummary: "Jasprit Bumrah is widely regarded as one of the greatest fast bowlers..."
+                achievements:
+                  - "ICC Men's Cricketer of the Year 2023"
+                  - "Leading wicket-taker in 2023 ODI World Cup"
+                  - "First Asian bowler to take 5-wkt haul in SA, England and Australia"
+                keyStats:
+                  - "Test bowling average: 20.26"
+                  - "ODI economy rate: 4.63"
+                  - "T20I wickets: 89"
+                legacyQuote: "The most unplayable death bowler of his generation."
+                image: "https://www.thesportsdb.com/images/media/player/thumb/bumrah.jpg"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "404":
+          description: Player not found or sport mismatch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                not_found:
+                  value:
+                    error: "No player found for \"xyz\". Please check the spelling or try a different name."
+                sport_mismatch:
+                  value:
+                    error: "\"Bumrah\" was found but not as a football player (found in Cricket). Try searching in the right sport."
+        "429":
+          $ref: "#/components/responses/RateLimited"
         "502":
           $ref: "#/components/responses/ClaudeError"
 
   /api/player/image:
     get:
       tags: [Player]
-      summary: Get player image
-      description: Fetches a player image from Wikipedia or TheSportsDB.
+      summary: Get player image URL
+      description: |
+        Fetches a player image. Tries TheSportsDB first, falls back to Wikipedia.
+        Does not call Claude — lightweight lookup only.
       parameters:
         - in: query
           name: name
@@ -151,20 +340,42 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ImageResponse"
+              example:
+                name: Cristiano Ronaldo
+                image: "https://www.thesportsdb.com/images/media/player/thumb/ronaldo.jpg"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
-          description: No image found
+          description: No image found for this player
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: No image found for this player
+
+  # ── Compare ─────────────────────────────────────────────────────────────────
 
   /api/compare:
     post:
       tags: [Compare]
-      summary: Head-to-head comparison
-      description: Compares two players with strengths, weaknesses, ratings and a verdict.
+      summary: Head-to-head player comparison
+      description: |
+        Compares two players with strengths, weaknesses, rating, and a verdict.
+
+        **Football with `FOOTBALL_API_KEY` set:**
+        Ratings are calculated from real per-90 stats from API-Football using
+        position-aware weighted formulas:
+        - Attacker: goals/90 (35%) + assists/90 (20%) + dribble success% (15%) + key passes (15%) + duels (15%)
+        - Midfielder: key passes/90 (30%) + assists/90 (25%) + pass accuracy (20%) + duels (15%) + tackles (10%)
+        - Defender: tackles/90 (30%) + interceptions/90 (25%) + duel win% (25%) + pass accuracy (20%)
+        - Goalkeeper: save% (50%) + saves/90 (30%) + goals conceded/90 inverted (20%)
+
+        **Without `FOOTBALL_API_KEY` or for cricket/tennis:**
+        Ratings are Claude's judgment (`scoringMethod: "claude"`).
+
+        **Determinism:** players sorted alphabetically before Claude call + temperature 0
+        ensures the same input always produces the same result regardless of player order.
       requestBody:
         required: true
         content:
@@ -173,17 +384,23 @@ paths:
               $ref: "#/components/schemas/CompareRequest"
             examples:
               football:
-                summary: Messi vs Ronaldo
+                summary: Messi vs Ronaldo (football)
                 value:
                   player1: Lionel Messi
                   player2: Cristiano Ronaldo
                   sport: football
               cricket:
-                summary: Kohli vs Tendulkar
+                summary: Kohli vs Tendulkar (cricket)
                 value:
                   player1: Virat Kohli
                   player2: Sachin Tendulkar
                   sport: cricket
+              tennis:
+                summary: Djokovic vs Nadal (tennis)
+                value:
+                  player1: Novak Djokovic
+                  player2: Rafael Nadal
+                  sport: tennis
       responses:
         "200":
           description: Comparison result
@@ -191,16 +408,43 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CompareResponse"
+              example:
+                sport: football
+                scoringMethod: calculated
+                player1:
+                  name: Lionel Messi
+                  strengths: ["Low centre of gravity", "Close ball control", "Vision and passing"]
+                  weaknesses: ["Aerial duels", "Tracking back defensively"]
+                  rating: "8.7/10"
+                  position: Attacker
+                  scoringMethod: "position-weighted stats"
+                  summary: "The greatest dribbler of his generation with unmatched close control."
+                player2:
+                  name: Cristiano Ronaldo
+                  strengths: ["Explosive pace", "Aerial ability", "Long-range shooting"]
+                  weaknesses: ["Close dribbling in tight spaces"]
+                  rating: "8.4/10"
+                  position: Attacker
+                  scoringMethod: "position-weighted stats"
+                  summary: "An athletic machine who reinvented himself as a lethal finisher."
+                verdict: "Messi edges this comparison for his dribbling creativity and vision..."
+                winner: Lionel Messi
         "400":
           $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/RateLimited"
         "502":
           $ref: "#/components/responses/ClaudeError"
+
+  # ── Timeline ────────────────────────────────────────────────────────────────
 
   /api/timeline:
     post:
       tags: [Timeline]
       summary: Career timeline
-      description: Generates a chronological career timeline with key events for a player.
+      description: |
+        Generates a chronological career timeline with 6–10 key events.
+        Pure Claude generation — no RAG retrieval.
       requestBody:
         required: true
         content:
@@ -208,16 +452,21 @@ paths:
             schema:
               $ref: "#/components/schemas/TimelineRequest"
             examples:
-              ronaldo:
-                summary: Cristiano Ronaldo
+              federer:
+                summary: Roger Federer (tennis)
                 value:
-                  name: Cristiano Ronaldo
-                  sport: football
+                  name: Roger Federer
+                  sport: tennis
               tendulkar:
-                summary: Sachin Tendulkar
+                summary: Sachin Tendulkar (cricket)
                 value:
                   name: Sachin Tendulkar
                   sport: cricket
+              ronaldo:
+                summary: Cristiano Ronaldo (football)
+                value:
+                  name: Cristiano Ronaldo
+                  sport: football
       responses:
         "200":
           description: Career timeline
@@ -225,10 +474,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TimelineResponse"
+              example:
+                sport: tennis
+                name: Roger Federer
+                events:
+                  - year: "1998"
+                    event: "Turned professional aged 16"
+                    type: debut
+                  - year: "2001"
+                    event: "Famously defeated Pete Sampras at Wimbledon aged 19"
+                    type: milestone
+                  - year: "2003"
+                    event: "Won first Wimbledon title — beginning of dynasty"
+                    type: trophy
+                  - year: "2009"
+                    event: "Won French Open to complete career Grand Slam"
+                    type: trophy
+                  - year: "2018"
+                    event: "Won Australian Open — 20th Grand Slam title"
+                    type: milestone
+                  - year: "2022"
+                    event: "Retired from professional tennis"
+                    type: retirement
         "400":
           $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/RateLimited"
         "502":
           $ref: "#/components/responses/ClaudeError"
+
+  # ── History ─────────────────────────────────────────────────────────────────
 
   /api/history:
     get:
@@ -244,16 +519,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HistoryResponse"
+              example:
+                user_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                count: 2
+                searches:
+                  - id: "uuid-1"
+                    user_id: "a1b2c3d4-..."
+                    query: "Messi vs Ronaldo"
+                    created_at: "2026-01-15T10:30:00.000Z"
         "401":
           $ref: "#/components/responses/Unauthorized"
-        "500":
-          $ref: "#/components/responses/ServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
 
   /api/history/{id}:
     delete:
       tags: [History]
-      summary: Delete a saved search
-      description: Deletes a specific search entry by ID for the authenticated user.
+      summary: Delete a search history entry
+      description: Deletes a specific entry. User can only delete their own entries.
       security:
         - BearerAuth: []
       parameters:
@@ -262,8 +545,8 @@ paths:
           required: true
           schema:
             type: string
-            format: uuid
-          description: Search entry UUID
+          description: Search entry ID
+          example: "uuid-1"
       responses:
         "200":
           description: Deleted successfully
@@ -280,15 +563,121 @@ paths:
         "500":
           $ref: "#/components/responses/ServerError"
 
+  # ── Ingest ──────────────────────────────────────────────────────────────────
+
+  /api/ingest:
+    post:
+      tags: [Ingest]
+      summary: Ingest one document into the RAG knowledge base
+      description: |
+        Embeds the document via Voyage AI and stores it in Supabase pgvector.
+        Used to add player knowledge documents that the Dual Analyst can retrieve.
+
+        **`metadata.type`** controls which analyst retrieves this doc:
+        - `narrative` → retrieved by The Tactician (technique/style questions)
+        - `stats` → retrieved by The Statistician (data/numbers questions)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IngestRequest"
+            examples:
+              narrative_doc:
+                summary: Narrative document (technique/style)
+                value:
+                  content: "Carlos Alcaraz is known for his explosive baseline game, exceptional drop shot, and ability to construct points from both wings. His athleticism and recovery speed are exceptional for his age."
+                  metadata:
+                    type: narrative
+                    player: alcaraz
+                    source: manual
+                  sport: tennis
+              stats_doc:
+                summary: Stats document (career numbers)
+                value:
+                  content: "Carlos Alcaraz career stats: Won Wimbledon 2023 and 2024, US Open 2022 and 2024. ATP ranking No. 3 (as of 2025). First player to win on all surfaces before age 22."
+                  metadata:
+                    type: stats
+                    player: alcaraz
+                    source: manual
+                  sport: tennis
+      responses:
+        "200":
+          description: Document ingested successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Document ingested
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "502":
+          description: Failed to embed or store document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/ingest/bulk:
+    post:
+      tags: [Ingest]
+      summary: Ingest multiple documents
+      description: |
+        Ingest multiple documents in a single request.
+        Each document is embedded and stored individually.
+        Returns a summary of successes and failures.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkIngestRequest"
+            example:
+              documents:
+                - content: "Sachin Tendulkar is regarded as one of the greatest batters..."
+                  metadata:
+                    type: narrative
+                    player: tendulkar
+                  sport: cricket
+                - content: "Sachin Tendulkar career stats: 15,921 Test runs, 51 Test centuries..."
+                  metadata:
+                    type: stats
+                    player: tendulkar
+                  sport: cricket
+      responses:
+        "200":
+          description: Bulk ingest result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkIngestResponse"
+              example:
+                success: 2
+                failed: 0
+                errors: []
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+# ── Components ────────────────────────────────────────────────────────────────
+
 components:
   securitySchemes:
     BearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Supabase JWT token
+      description: Supabase JWT token obtained from client-side auth
 
   schemas:
+
+    # ── Health ─────────────────────────────────────────────────────────────────
+
     HealthResponse:
       type: object
       properties:
@@ -305,18 +694,72 @@ components:
           type: string
           format: date-time
 
+    # ── Analyse ────────────────────────────────────────────────────────────────
+
     AnalyseRequest:
       type: object
       required: [question]
       properties:
         question:
           type: string
-          description: The sports question to debate
-          example: Is Mbappe worth his transfer fee?
+          description: The sports question to analyse
+          example: "Who is the better dribbler, Messi or Ronaldo?"
         sport:
           type: string
           enum: [football, cricket, tennis]
           default: football
+
+    StreamEvent:
+      type: object
+      description: One SSE event. Type determines the shape.
+      properties:
+        type:
+          type: string
+          enum: [intent, sources, tactician, statistician, done, error]
+        intent:
+          type: string
+          enum: [opinion, player_stats, player_technique, comparison, general]
+          description: Present when type=intent
+        reason:
+          type: string
+          description: Present when type=intent — short explanation
+        tactician:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceDoc"
+          description: Present when type=sources
+        statistician:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceDoc"
+          description: Present when type=sources
+        token:
+          type: string
+          description: Present when type=tactician or type=statistician — concatenate all tokens
+        message:
+          type: string
+          description: Present when type=error
+
+    SourceDoc:
+      type: object
+      properties:
+        snippet:
+          type: string
+          description: First 120 characters of the retrieved document
+          example: "Messi's dribbling relies on an extremely low centre of gravity..."
+        sport:
+          type: string
+          enum: [football, cricket, tennis]
+        type:
+          type: string
+          enum: [narrative, stats]
+        similarity:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Cosine similarity score. Only docs ≥ 0.65 are returned.
+          example: 0.821
 
     AnalyseResponse:
       type: object
@@ -325,12 +768,25 @@ components:
           type: string
         sport:
           type: string
-        analystA:
+        tactician:
           type: string
-          description: Tactical/technique analyst perspective
-        analystB:
+          description: Full response from The Tactician (technique/style analyst)
+        statistician:
           type: string
-          description: Data/stats analyst perspective
+          description: Full response from The Statistician (data/stats analyst)
+        sources:
+          type: object
+          properties:
+            tactician:
+              type: array
+              items:
+                $ref: "#/components/schemas/SourceDoc"
+            statistician:
+              type: array
+              items:
+                $ref: "#/components/schemas/SourceDoc"
+
+    # ── Player ─────────────────────────────────────────────────────────────────
 
     PlayerRequest:
       type: object
@@ -338,7 +794,7 @@ components:
       properties:
         name:
           type: string
-          example: Lionel Messi
+          example: Jasprit Bumrah
         sport:
           type: string
           enum: [football, cricket, tennis]
@@ -349,30 +805,44 @@ components:
       properties:
         name:
           type: string
+          description: From TheSportsDB
         nationality:
           type: string
+          nullable: true
+          description: From TheSportsDB
         position:
           type: string
+          nullable: true
+          description: From TheSportsDB
         currentTeam:
           type: string
+          nullable: true
+          description: From TheSportsDB
         age:
-          type: string
+          type: integer
+          nullable: true
+          description: Calculated from dateBorn — never Claude-generated
         careerSummary:
           type: string
+          description: Claude-generated (2–3 sentences)
         achievements:
           type: array
           items:
             type: string
+          description: Claude-generated
         keyStats:
           type: array
           items:
             type: string
+          description: Claude-generated
         legacyQuote:
           type: string
+          description: Claude-generated (one sentence)
         image:
           type: string
           format: uri
           nullable: true
+          description: From TheSportsDB, fallback to Wikipedia
 
     ImageResponse:
       type: object
@@ -382,6 +852,8 @@ components:
         image:
           type: string
           format: uri
+
+    # ── Compare ────────────────────────────────────────────────────────────────
 
     CompareRequest:
       type: object
@@ -407,29 +879,55 @@ components:
           type: array
           items:
             type: string
+          minItems: 2
+          maxItems: 4
         weaknesses:
           type: array
           items:
             type: string
+          minItems: 1
+          maxItems: 3
         rating:
           type: string
-          example: 9/10
+          description: "Format: X.X/10"
+          example: "8.7/10"
+        position:
+          type: string
+          nullable: true
+          description: Detected position from API-Football (football only)
+          example: Attacker
+        scoringMethod:
+          type: string
+          enum: ["position-weighted stats", "claude"]
+          description: How the rating was calculated for this player
         summary:
           type: string
+          description: 2-sentence qualitative summary
 
     CompareResponse:
       type: object
       properties:
         sport:
           type: string
+        scoringMethod:
+          type: string
+          enum: [calculated, claude]
+          description: |
+            Top-level scoring method for this comparison.
+            `calculated` = both ratings from API-Football position-weighted stats.
+            `claude` = API key not set or no stats found — Claude generated the ratings.
         player1:
           $ref: "#/components/schemas/PlayerComparison"
         player2:
           $ref: "#/components/schemas/PlayerComparison"
         verdict:
           type: string
+          description: 2–3 sentence overall verdict
         winner:
           type: string
+          description: Name of the winner according to Claude's analysis
+
+    # ── Timeline ───────────────────────────────────────────────────────────────
 
     TimelineRequest:
       type: object
@@ -451,6 +949,7 @@ components:
           example: "2003"
         event:
           type: string
+          example: "Won first Wimbledon title"
         type:
           type: string
           enum: [debut, transfer, trophy, milestone, retirement]
@@ -466,19 +965,17 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/TimelineEvent"
+          minItems: 6
+          maxItems: 10
+
+    # ── History ────────────────────────────────────────────────────────────────
 
     SearchEntry:
       type: object
       properties:
         id:
           type: string
-          format: uuid
         user_id:
-          type: string
-          format: uuid
-        sport:
-          type: string
-        feature:
           type: string
         query:
           type: string
@@ -491,13 +988,69 @@ components:
       properties:
         user_id:
           type: string
-          format: uuid
         count:
           type: integer
         searches:
           type: array
           items:
             $ref: "#/components/schemas/SearchEntry"
+
+    # ── Ingest ─────────────────────────────────────────────────────────────────
+
+    IngestRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          description: Document text to embed and store
+          example: "Carlos Alcaraz won Wimbledon 2023 and 2024..."
+        metadata:
+          type: object
+          description: Arbitrary key-value pairs. Use `type` for narrative or stats routing.
+          properties:
+            type:
+              type: string
+              enum: [narrative, stats]
+              description: Controls which analyst retrieves this doc
+            player:
+              type: string
+              description: Player name (lowercase) for filtering
+            source:
+              type: string
+              example: manual
+          additionalProperties: true
+        sport:
+          type: string
+          enum: [football, cricket, tennis, general]
+          default: general
+
+    BulkIngestRequest:
+      type: object
+      required: [documents]
+      properties:
+        documents:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/IngestRequest"
+
+    BulkIngestResponse:
+      type: object
+      properties:
+        success:
+          type: integer
+          description: Number of documents successfully ingested
+        failed:
+          type: integer
+          description: Number of documents that failed
+        errors:
+          type: array
+          items:
+            type: string
+          description: Error messages for failed documents
+
+    # ── Shared ─────────────────────────────────────────────────────────────────
 
     Error:
       type: object
@@ -506,6 +1059,7 @@ components:
           type: string
         detail:
           type: string
+          description: Additional error detail (optional)
 
   responses:
     BadRequest:
@@ -526,15 +1080,24 @@ components:
           example:
             error: Authorization header required
 
+    RateLimited:
+      description: Too many requests — 30 per 15 minutes per IP
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: Too many requests, please try again in a few minutes.
+
     ClaudeError:
-      description: Claude API error
+      description: Upstream Claude API or external service error
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
           example:
             error: Failed to reach Claude API
-            detail: Claude API error 429
+            detail: "Claude API error: 529"
 
     ServerError:
       description: Internal server error
@@ -542,3 +1105,14 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
+          example:
+            error: Internal server error
+
+    ServiceUnavailable:
+      description: Database not configured
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: Database not configured
