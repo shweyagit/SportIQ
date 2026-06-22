@@ -575,7 +575,7 @@ export default function App() {
           <div style={{ width:"32px", height:"32px", background:`linear-gradient(135deg,${sport.analystA.accent},${sport.analystB.accent})`, borderRadius:"8px", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"16px", transition:"background 0.4s", flexShrink:0 }}>{sport.emoji}</div>
           <div>
             <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"22px", color:"#fff", letterSpacing:"5px", lineHeight:1 }}>SportIQ</div>
-            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"7px", color:"#2a2a2a", letterSpacing:"3px" }}>AI SPORTS PLATFORM</div>
+            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#888", letterSpacing:"4px" }}>AI SPORTS PLATFORM</div>
           </div>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:"16px" }}>
