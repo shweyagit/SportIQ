@@ -118,6 +118,7 @@ function DualAnalyst({ sport, onSave, T }) {
   const [q, setQ] = useState(""); const [rA, setRA] = useState(""); const [rB, setRB] = useState("");
   const [lA, setLA] = useState(false); const [lB, setLB] = useState(false);
   const [sourcesA, setSourcesA] = useState([]); const [sourcesB, setSourcesB] = useState([]);
+  const [showSources, setShowSources] = useState(false);
   const [hist, setHist] = useState([]);
   const { analystA: aA, analystB: aB, suggestions, color } = sport;
 
@@ -125,7 +126,7 @@ function DualAnalyst({ sport, onSave, T }) {
 
   const ask = async (query) => {
     const qry = query || q; if (!qry.trim()) return;
-    setRA(""); setRB(""); setLA(true); setLB(true); setSourcesA([]); setSourcesB([]);
+    setRA(""); setRB(""); setLA(true); setLB(true); setSourcesA([]); setSourcesB([]); setShowSources(false);
     setHist(p => [{question:qry, time:new Date().toLocaleTimeString()}, ...p.slice(0,4)]);
     onSave(qry);
     try {
@@ -183,9 +184,11 @@ function DualAnalyst({ sport, onSave, T }) {
             {l ? <LoadDots color={a.accent}/> : r ? <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", lineHeight:"1.9", color:T.text2, margin:0 }}>{r}</p> : <p style={{ fontFamily:"'Space Mono',monospace", fontSize:"10px", color:a.accent+"55", margin:0 }}>AWAITING QUERY...</p>}
             {sources?.length > 0 && (
               <div style={{ marginTop:"16px", borderTop:`1px solid ${a.accent}11`, paddingTop:"12px" }}>
-                <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:a.accent+"cc", letterSpacing:"2px", marginBottom:"8px" }}>RETRIEVED CONTEXT</div>
-                {sources.map((s,i) => (
-                  <div key={i} style={{ background:T.bgInput+"88", border:`1px solid ${a.accent}11`, borderRadius:"4px", padding:"8px 10px", marginBottom:"4px" }}>
+                <button onClick={() => setShowSources(v => !v)} style={{ background:"transparent", border:"none", cursor:"pointer", fontFamily:"'Space Mono',monospace", fontSize:"8px", color:a.accent+"cc", letterSpacing:"2px", padding:0, display:"flex", alignItems:"center", gap:"6px" }}>
+                  SOURCES ({sources.length}) {showSources ? "▲" : "▼"}
+                </button>
+                {showSources && sources.map((s,i) => (
+                  <div key={i} style={{ background:T.bgInput+"88", border:`1px solid ${a.accent}11`, borderRadius:"4px", padding:"8px 10px", marginBottom:"4px", marginTop:"8px" }}>
                     <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:a.accent+"cc", letterSpacing:"1px" }}>{s.type?.toUpperCase()} · {s.sport}</span>
                     <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"11px", color:T.text3, margin:"4px 0 0", lineHeight:"1.5" }}>{s.snippet}</p>
                   </div>

@@ -14,6 +14,9 @@
 require("dotenv").config();
 const { storeDocument } = require("./rag");
 
+// Set RESUME=3 to skip already-ingested docs (e.g. node seed-fictional.js --resume 3)
+const RESUME_FROM = parseInt(process.argv[3] || "0", 10);
+
 const DOCUMENTS = [
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -129,23 +132,27 @@ Clay court record: 54% win rate — his weakest surface. Hard court record: 71%.
 
 ];
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 async function run() {
-  console.log(`\n[SEED] Ingesting ${DOCUMENTS.length} fictional player documents...\n`);
+  const remaining = DOCUMENTS.slice(RESUME_FROM);
+  console.log(`\n[SEED] Ingesting ${remaining.length} fictional player documents (skipping first ${RESUME_FROM})...\n`);
   console.log(`  Players: Devraj Nambiar (cricket), Lucas Ferreira (football), Mika Virtanen (tennis)\n`);
 
   let success = 0;
   let failed = 0;
 
-  for (const doc of DOCUMENTS) {
+  for (const doc of remaining) {
     const label = `${doc.metadata.player} (${doc.sport} / ${doc.metadata.type})`;
     try {
-      await storeDocument(doc.content, doc.metadata, doc.sport);
+      await storeDocument(doc.content, doc.metadata, doc.sport, doc.metadata.type);
       console.log(`  ✓  ${label}`);
       success++;
     } catch (err) {
       console.error(`  ✗  ${label} — ${err.message}`);
       failed++;
     }
+    await sleep(5000); // 5s between calls to stay within Voyage AI rate limit
   }
 
   console.log(`\n[SEED] Done — ${success} ingested, ${failed} failed.\n`);

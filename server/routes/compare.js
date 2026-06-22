@@ -3,6 +3,44 @@ const router = express.Router();
 const { retrieveContext } = require("../rag");
 const { fetchFootballStats, calculateScore, buildStatsContext } = require("../services/footballStats");
 
+const SPORT_MAP = { football: "Soccer", cricket: "Cricket", tennis: "Tennis" };
+
+// Validate player name against TheSportsDB.
+// Returns { valid, officialName, reason }
+// Logic:
+//   - If TheSportsDB finds them: check the returned name overlaps with the search term
+//   - If not found: allow only if name has 2+ words (fictional players path)
+//   - Single short names with no TheSportsDB match are rejected as likely typos/garbage
+async function validatePlayer(name, sport) {
+  try {
+    const res = await fetch(
+      `https://www.thesportsdb.com/api/v1/json/3/searchplayers.php?p=${encodeURIComponent(name)}`
+    );
+    const data = await res.json();
+    const players = data?.player;
+
+    if (!players?.length) {
+      // Not in TheSportsDB — allow if name looks like a full name (2+ meaningful words)
+      const words = name.trim().split(/\s+/).filter(w => w.length >= 2);
+      if (words.length < 2) return { valid: false, reason: `Player "${name}" not found. Please enter a full player name.` };
+      return { valid: true, officialName: name }; // fictional / obscure player path
+    }
+
+    const expectedSport = SPORT_MAP[sport];
+    const match = players.find(p => p.strSport === expectedSport) || players[0];
+
+    // Check name overlap — catches "api token" → "Salman Khan" type mismatches
+    const searchWords = name.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    const foundWords  = (match.strPlayer || "").toLowerCase().split(/\s+/);
+    const overlap = searchWords.some(sw => foundWords.some(fw => fw.includes(sw) || sw.includes(fw)));
+
+    if (!overlap) return { valid: false, reason: `"${name}" didn't match a known player. Please check the spelling.` };
+    return { valid: true, officialName: match.strPlayer || name };
+  } catch {
+    return { valid: true, officialName: name }; // TheSportsDB unreachable — allow and proceed
+  }
+}
+
 async function askClaude(prompt, systemPrompt) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -29,8 +67,20 @@ router.post("/", async (req, res) => {
   const { player1, player2, sport = "football" } = req.body;
   if (!player1 || !player2) return res.status(400).json({ error: "player1 and player2 are required" });
 
+  // Validate both player names before hitting Claude
+  const [v1, v2] = await Promise.all([
+    validatePlayer(player1, sport),
+    validatePlayer(player2, sport),
+  ]);
+  if (!v1.valid) return res.status(404).json({ error: v1.reason });
+  if (!v2.valid) return res.status(404).json({ error: v2.reason });
+
+  // Use official names where TheSportsDB confirmed them
+  const resolvedPlayer1 = v1.officialName;
+  const resolvedPlayer2 = v2.officialName;
+
   // Sort alphabetically — makes prompt deterministic regardless of input order
-  const [pA, pB] = [player1, player2].sort();
+  const [pA, pB] = [resolvedPlayer1, resolvedPlayer2].sort();
 
   try {
     // ── Football: fetch real stats and calculate position-aware scores ─────────
@@ -91,7 +141,7 @@ router.post("/", async (req, res) => {
     };
 
     // Restore original input order in response
-    const ordered = player1.toLowerCase() === pA.toLowerCase()
+    const ordered = resolvedPlayer1.toLowerCase() === pA.toLowerCase()
       ? result
       : { ...result, player1: result.player2, player2: result.player1 };
 
