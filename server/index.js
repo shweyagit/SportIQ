@@ -52,6 +52,7 @@ app.use("/api/compare",  aiLimiter, require("./routes/compare"));
 app.use("/api/timeline", aiLimiter, require("./routes/timeline"));
 app.use("/api/history",  require("./routes/history"));
 app.use("/api/ingest",   require("./routes/ingest"));
+app.use("/api/scrape",   require("./routes/scrape"));
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get("/api/health", (req, res) => {
