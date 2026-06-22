@@ -20,21 +20,28 @@ async function validatePlayer(name, sport) {
     const players = data?.player;
 
     if (!players?.length) {
-      // Not in TheSportsDB — allow if name looks like a full name (2+ meaningful words)
+      // Not in TheSportsDB — allow only if it looks like a full name (2+ meaningful words)
+      // This is the fictional player path (Devraj Nambiar, Lucas Ferreira etc.)
       const words = name.trim().split(/\s+/).filter(w => w.length >= 2);
       if (words.length < 2) return { valid: false, reason: `Player "${name}" not found. Please enter a full player name.` };
-      return { valid: true, officialName: name }; // fictional / obscure player path
+      return { valid: true, officialName: name };
     }
 
+    // Only accept players in the correct sport — no cross-sport fallback
     const expectedSport = SPORT_MAP[sport];
-    const match = players.find(p => p.strSport === expectedSport) || players[0];
+    const match = players.find(p => p.strSport === expectedSport);
+    if (!match) {
+      const foundSport = players[0].strSport;
+      return { valid: false, reason: `"${name}" was found in ${foundSport}, not ${sport}. Please search in the correct sport.` };
+    }
 
-    // Check name overlap — catches "api token" → "Salman Khan" type mismatches
+    // Strict word-level name match — "nank" must match a full word in the player's name, not just a substring
+    // e.g. "nank" should NOT match "Nankervis", but "Kohli" should match "Virat Kohli"
     const searchWords = name.toLowerCase().split(/\s+/).filter(w => w.length > 2);
     const foundWords  = (match.strPlayer || "").toLowerCase().split(/\s+/);
-    const overlap = searchWords.some(sw => foundWords.some(fw => fw.includes(sw) || sw.includes(fw)));
+    const overlap = searchWords.some(sw => foundWords.some(fw => fw === sw || fw.startsWith(sw) && sw.length >= 5));
 
-    if (!overlap) return { valid: false, reason: `"${name}" didn't match a known player. Please check the spelling.` };
+    if (!overlap) return { valid: false, reason: `"${name}" didn't match a known ${sport} player. Please check the spelling.` };
     return { valid: true, officialName: match.strPlayer || name };
   } catch {
     return { valid: true, officialName: name }; // TheSportsDB unreachable — allow and proceed
