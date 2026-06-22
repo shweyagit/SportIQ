@@ -580,7 +580,6 @@ export default function App() {
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:"16px" }}>
           <div style={{ width:"6px", height:"6px", borderRadius:"50%", background:"#00ff87", boxShadow:"0 0 6px #00ff8788" }}/>
-          <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#333", letterSpacing:"2px" }}>POWERED BY CLAUDE</div>
           {user ? (
             <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
               <img src={user.user_metadata?.avatar_url} alt="" onError={e=>e.target.style.display="none"} style={{ width:"28px", height:"28px", borderRadius:"50%", objectFit:"cover" }}/>
