@@ -82,7 +82,7 @@ function PlayerAvatar({ image, name, size=80 }) {
     : <img src={image} alt={name} onError={() => setErr(true)} style={{ width:size, height:size, objectFit:"cover", objectPosition:"top", borderRadius:"4px", display:"block", flexShrink:0 }}/>;
 }
 
-const L = { fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#333", letterSpacing:"3px", marginBottom:"12px", textTransform:"uppercase" };
+const L = { fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#888", letterSpacing:"3px", marginBottom:"12px", textTransform:"uppercase" };
 const SB = (color) => ({ background:color||"#fff", border:"none", padding:"14px 26px", color:"#000", fontFamily:"'Space Mono',monospace", fontSize:"10px", letterSpacing:"2px", fontWeight:"700", cursor:"pointer", whiteSpace:"nowrap", borderRadius:"0 4px 4px 0", transition:"opacity 0.2s" });
 const IS = { background:"#0e0e0e", border:"1px solid #1f1f1f", borderRadius:"4px", padding:"14px 18px", color:"#fff", fontFamily:"'DM Sans',sans-serif", fontSize:"14px", outline:"none" };
 
@@ -142,7 +142,7 @@ function DualAnalyst({ sport, onSave }) {
       </div>
       <div style={{ display:"flex", gap:"8px", marginBottom:"28px", flexWrap:"wrap" }}>
         {suggestions.map((s,i) => (
-          <button key={i} onClick={()=>ask(s)} style={{ background:"transparent", border:"1px solid #1a1a1a", borderRadius:"20px", padding:"6px 14px", color:"#555", fontFamily:"'DM Sans',sans-serif", fontSize:"11px", cursor:"pointer", transition:"all 0.2s" }}>{s}</button>
+          <button key={i} onClick={()=>ask(s)} style={{ background:"transparent", border:"1px solid #2a2a2a", borderRadius:"20px", padding:"6px 14px", color:"#999", fontFamily:"'DM Sans',sans-serif", fontSize:"11px", cursor:"pointer", transition:"all 0.2s" }}>{s}</button>
         ))}
       </div>
       <div style={{ display:"flex", gap:"16px", marginBottom:"28px" }}>
@@ -150,16 +150,16 @@ function DualAnalyst({ sport, onSave }) {
           <div key={a.Role} style={{ flex:1, background:a.bg, border:`1px solid ${a.accent}22`, borderRadius:"8px", padding:"24px", position:"relative", minHeight:"240px", display:"flex", flexDirection:"column", overflow:"hidden" }}>
             <div style={{ position:"absolute", top:0, left:0, right:0, height:"2px", background:`linear-gradient(90deg,${a.accent},${a.accent}00)` }}/>
             <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"28px", color:a.accent, letterSpacing:"4px" }}>{a.Role}</div>
-            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:a.accent+"77", letterSpacing:"2px", marginBottom:"4px" }}>{a.label}</div>
+            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:a.accent+"cc", letterSpacing:"2px", marginBottom:"4px" }}>{a.label}</div>
             <div style={{ height:"1px", background:`linear-gradient(90deg,${a.accent}33,transparent)`, marginBottom:"16px", marginTop:"10px" }}/>
-            {l ? <LoadDots color={a.accent}/> : r ? <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", lineHeight:"1.9", color:"#ccc", margin:0 }}>{r}</p> : <p style={{ fontFamily:"'Space Mono',monospace", fontSize:"10px", color:a.accent+"22", margin:0 }}>AWAITING QUERY...</p>}
+            {l ? <LoadDots color={a.accent}/> : r ? <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", lineHeight:"1.9", color:"#ccc", margin:0 }}>{r}</p> : <p style={{ fontFamily:"'Space Mono',monospace", fontSize:"10px", color:a.accent+"55", margin:0 }}>AWAITING QUERY...</p>}
             {sources?.length > 0 && (
               <div style={{ marginTop:"16px", borderTop:`1px solid ${a.accent}11`, paddingTop:"12px" }}>
-                <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:a.accent+"55", letterSpacing:"2px", marginBottom:"8px" }}>RETRIEVED CONTEXT</div>
+                <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:a.accent+"cc", letterSpacing:"2px", marginBottom:"8px" }}>RETRIEVED CONTEXT</div>
                 {sources.map((s,i) => (
                   <div key={i} style={{ background:"#ffffff08", border:`1px solid ${a.accent}11`, borderRadius:"4px", padding:"8px 10px", marginBottom:"4px" }}>
-                    <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:a.accent+"66", letterSpacing:"1px" }}>{s.type?.toUpperCase()} · {s.sport}</span>
-                    <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"11px", color:"#444", margin:"4px 0 0", lineHeight:"1.5" }}>{s.snippet}</p>
+                    <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:a.accent+"cc", letterSpacing:"1px" }}>{s.type?.toUpperCase()} · {s.sport}</span>
+                    <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"11px", color:"#aaa", margin:"4px 0 0", lineHeight:"1.5" }}>{s.snippet}</p>
                   </div>
                 ))}
               </div>
@@ -172,8 +172,8 @@ function DualAnalyst({ sport, onSave }) {
           <div style={L}>Recent Queries</div>
           {hist.map((h,i) => (
             <div key={i} onClick={()=>ask(h.question)} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 16px", background:"#0c0c0c", border:"1px solid #161616", borderRadius:"6px", marginBottom:"6px", cursor:"pointer", transition:"border-color 0.2s" }}>
-              <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:"#555" }}>{h.question}</span>
-              <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#2a2a2a" }}>{h.time}</span>
+              <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:"#bbb" }}>{h.question}</span>
+              <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#777" }}>{h.time}</span>
             </div>
           ))}
         </div>
@@ -230,10 +230,10 @@ function PlayerProfile({ sport, onSave }) {
               <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"36px", color:"#fff", letterSpacing:"3px", lineHeight:1 }}>{profile.name}</div>
               <div style={{ display:"flex", gap:"8px", marginTop:"10px", flexWrap:"wrap" }}>
                 {[profile.nationality,profile.position,profile.currentTeam,`Age: ${profile.age}`].map((item,i) => (
-                  <span key={i} style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#555", letterSpacing:"1px", background:"#161616", padding:"5px 10px", borderRadius:"20px", border:"1px solid #222" }}>{item}</span>
+                  <span key={i} style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#aaa", letterSpacing:"1px", background:"#161616", padding:"5px 10px", borderRadius:"20px", border:"1px solid #333" }}>{item}</span>
                 ))}
               </div>
-              <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", color:"#888", lineHeight:"1.8", margin:"14px 0 0" }}>{profile.careerSummary}</p>
+              <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", color:"#ccc", lineHeight:"1.8", margin:"14px 0 0" }}>{profile.careerSummary}</p>
             </div>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"16px" }}>
@@ -247,18 +247,18 @@ function PlayerProfile({ sport, onSave }) {
               ))}
             </div>
             <div style={{ background:"#0d0d0d", border:"1px solid #1a1a1a", borderRadius:"10px", padding:"20px" }}>
-              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#555", letterSpacing:"2px", marginBottom:"12px" }}>KEY STATS</div>
+              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#888", letterSpacing:"2px", marginBottom:"12px" }}>KEY STATS</div>
               {profile.keyStats?.map((s,i) => (
                 <div key={i} style={{ display:"flex", gap:"10px", marginBottom:"9px", alignItems:"flex-start" }}>
-                  <span style={{ color:"#555", fontSize:"10px", marginTop:"2px" }}>▸</span>
+                  <span style={{ color:"#888", fontSize:"10px", marginTop:"2px" }}>▸</span>
                   <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:"#aaa", lineHeight:"1.6" }}>{s}</span>
                 </div>
               ))}
             </div>
           </div>
           <div style={{ marginTop:"16px", background:"#0e0e0e", border:`1px solid ${color}18`, borderRadius:"10px", padding:"20px 24px" }}>
-            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#333", letterSpacing:"2px", marginBottom:"8px" }}>LEGACY</div>
-            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"14px", color:"#777", fontStyle:"italic", margin:0, lineHeight:"1.7" }}>"{profile.legacyQuote}"</p>
+            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#888", letterSpacing:"2px", marginBottom:"8px" }}>LEGACY</div>
+            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"14px", color:"#ccc", fontStyle:"italic", margin:0, lineHeight:"1.7" }}>"{profile.legacyQuote}"</p>
           </div>
         </div>
       )}
@@ -300,7 +300,7 @@ function HeadToHead({ sport, onSave }) {
       <div style={L}>Compare Two {label} Players</div>
       <div style={{ display:"flex", gap:"12px", marginBottom:"32px", alignItems:"center" }}>
         <input value={p1} onChange={e=>setP1(e.target.value)} placeholder="Player 1" style={{...IS, flex:1, borderRadius:"4px"}} onKeyDown={e=>e.key==="Enter"&&compare()}/>
-        <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"24px", color:"#2a2a2a", padding:"0 4px" }}>VS</div>
+        <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"24px", color:"#666", padding:"0 4px" }}>VS</div>
         <input value={p2} onChange={e=>setP2(e.target.value)} placeholder="Player 2" style={{...IS, flex:1, borderRadius:"4px"}} onKeyDown={e=>e.key==="Enter"&&compare()}/>
         <button onClick={compare} style={{...SB(color), borderRadius:"4px"}}>COMPARE →</button>
       </div>
@@ -318,21 +318,21 @@ function HeadToHead({ sport, onSave }) {
                     <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"18px", color:c, marginTop:"4px", fontWeight:"700" }}>{p.rating}</div>
                   </div>
                 </div>
-                <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:"#777", lineHeight:"1.8", margin:"0 0 16px" }}>{p.summary}</p>
+                <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:"#bbb", lineHeight:"1.8", margin:"0 0 16px" }}>{p.summary}</p>
                 <div style={{ marginBottom:"12px" }}>
-                  <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:c+"88", letterSpacing:"2px", marginBottom:"6px" }}>STRENGTHS</div>
+                  <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:c+"dd", letterSpacing:"2px", marginBottom:"6px" }}>STRENGTHS</div>
                   {p.strengths?.map((s,i) => <div key={i} style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"11px", color:"#aaa", marginBottom:"4px" }}>+ {s}</div>)}
                 </div>
                 <div>
-                  <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#ff444488", letterSpacing:"2px", marginBottom:"6px" }}>WEAKNESSES</div>
-                  {p.weaknesses?.map((w,i) => <div key={i} style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"11px", color:"#555", marginBottom:"4px" }}>− {w}</div>)}
+                  <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#ff4444cc", letterSpacing:"2px", marginBottom:"6px" }}>WEAKNESSES</div>
+                  {p.weaknesses?.map((w,i) => <div key={i} style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"11px", color:"#bbb", marginBottom:"4px" }}>− {w}</div>)}
                 </div>
               </div>
             ))}
           </div>
           <div style={{ background:"#0e0e0e", border:`1px solid ${color}18`, borderRadius:"10px", padding:"20px 24px" }}>
-            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#333", letterSpacing:"2px", marginBottom:"8px" }}>VERDICT</div>
-            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", color:"#888", margin:"0 0 12px", lineHeight:"1.8" }}>{result.verdict}</p>
+            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#888", letterSpacing:"2px", marginBottom:"8px" }}>VERDICT</div>
+            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", color:"#ccc", margin:"0 0 12px", lineHeight:"1.8" }}>{result.verdict}</p>
             <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"16px", color:"#fff", letterSpacing:"3px" }}>WINNER: <span style={{ color }}>{result.winner}</span></div>
           </div>
         </div>
@@ -389,7 +389,7 @@ function Timeline({ sport, onSave }) {
             </div>
             <div style={{ flex:1, padding:"20px 24px", display:"flex", flexDirection:"column", justifyContent:"center" }}>
               <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"32px", color:"#fff", letterSpacing:"4px" }}>{timeline.name}</div>
-              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#333", letterSpacing:"2px", marginTop:"4px" }}>CAREER TIMELINE</div>
+              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#888", letterSpacing:"2px", marginTop:"4px" }}>CAREER TIMELINE</div>
             </div>
           </div>
           <div style={{ position:"relative", paddingLeft:"42px" }}>
@@ -405,7 +405,7 @@ function Timeline({ sport, onSave }) {
                       <span style={{ marginRight:"8px" }}>{typeIcon[e.type]}</span>
                       <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", color:"#bbb", lineHeight:"1.7" }}>{e.event}</span>
                     </div>
-                    <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:c+"55", letterSpacing:"1px", textTransform:"uppercase", paddingTop:"4px" }}>{e.type}</div>
+                    <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:c+"cc", letterSpacing:"1px", textTransform:"uppercase", paddingTop:"4px" }}>{e.type}</div>
                   </div>
                 </div>
               );
@@ -447,7 +447,7 @@ function AuthModal({ onClose }) {
         <button onClick={onClose} style={{ position:"absolute", top:"16px", right:"16px", background:"none", border:"none", color:"#444", fontSize:"18px", cursor:"pointer" }}>✕</button>
 
         <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"28px", color:"#fff", letterSpacing:"4px", marginBottom:"4px" }}>SPORTIQ</div>
-        <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#444", letterSpacing:"2px", marginBottom:"28px" }}>SIGN IN TO SAVE YOUR SEARCHES</div>
+        <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#999", letterSpacing:"2px", marginBottom:"28px" }}>SIGN IN TO SAVE YOUR SEARCHES</div>
 
         {sent ? (
           <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", color:"#00ff87", textAlign:"center", lineHeight:"1.8" }}>
@@ -463,7 +463,7 @@ function AuthModal({ onClose }) {
 
             <div style={{ display:"flex", alignItems:"center", gap:"12px", marginBottom:"20px" }}>
               <div style={{ flex:1, height:"1px", background:"#1f1f1f" }}/>
-              <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#333" }}>OR</span>
+              <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#777" }}>OR</span>
               <div style={{ flex:1, height:"1px", background:"#1f1f1f" }}/>
             </div>
 
