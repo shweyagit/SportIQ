@@ -88,6 +88,17 @@ Articles are chunked into ~150 word paragraphs before embedding — each chunk i
 
 Trigger a scrape: `POST /api/scrape`
 
+### Layer 2b — Fictional Players (RAG Pipeline Verification)
+Three completely fictional players with invented stats and incidents — ingested specifically to prove the RAG pipeline is working end-to-end.
+
+| Player | Sport | Key Invented Fact |
+|---|---|---|
+| **Devraj Nambiar** | Cricket | 214* in Cape Town after India were 34/4. 847 runs in England series — fictional record. Weakness against left-arm pace documented. |
+| **Lucas Ferreira** | Football | Scored "O Giro" in Copa America final 89th min to equalise. 18 assists in La Liga 2024-25 — fictional record. |
+| **Mika Virtanen** | Tennis | Won Wimbledon 2025. Saved 4 match points vs Djokovic in the semi-final. First Finnish player to win a Grand Slam. |
+
+**Why fictional players?** Claude has zero training data on these players. If the Dual Analyst cites "O Giro" or "847 runs in the England series" — those facts can only have come from the knowledge base. This makes it a clean, unambiguous proof that the retrieval pipeline is working rather than Claude answering from training data.
+
 ### Layer 3 — Auto-ingest on Player Lookup
 When a player profile is looked up via `/api/player`, their TheSportsDB data is automatically ingested into the knowledge base in the background if not already present.
 
