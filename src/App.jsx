@@ -7,24 +7,60 @@ const SPORTS = {
   football: {
     label: "Football", emoji: "⚽", color: "#00ff87",
     suggestions: ["Who would win: Peak Messi vs Peak Ronaldo in a one-on-one?", "Could Guardiola's City beat any club in history?", "Is the Premier League ruining international football?", "Which footballer has the highest football IQ ever?", "Would Ronaldinho thrive in modern football?"],
-    analystA: { Role: "The Tactician", accent: "#00ff87", bg: "#0a1a12", label: "Technique & Style" },
-    analystB: { Role: "The Statistician", accent: "#ff6b35", bg: "#1a0f0a", label: "Career Data & Numbers" },
+    analystA: { Role: "The Tactician",    accent: "#00ff87", label: "Technique & Style" },
+    analystB: { Role: "The Statistician", accent: "#ff6b35", label: "Career Data & Numbers" },
   },
   cricket: {
     label: "Cricket", emoji: "🏏", color: "#4fc3f7",
     suggestions: ["Could Tendulkar average 60 in today's T20-obsessed era?", "Is Kohli mentally the toughest batter ever?", "Which is harder — facing Warne or Murali on a turning track?", "Would the 2007 World T20 team beat the 2024 T20 World Cup winners?", "Is DRS killing the art of umpiring?"],
-    analystA: { Role: "The Tactician", accent: "#4fc3f7", bg: "#0a1218", label: "Technique & Style" },
-    analystB: { Role: "The Statistician", accent: "#e040fb", bg: "#140a18", label: "Career Data & Numbers" },
+    analystA: { Role: "The Tactician",    accent: "#4fc3f7", label: "Technique & Style" },
+    analystB: { Role: "The Statistician", accent: "#e040fb", label: "Career Data & Numbers" },
   },
   tennis: {
     label: "Tennis", emoji: "🎾", color: "#ffd700",
     suggestions: ["Could peak Federer beat Djokovic on any surface?", "Is Sinner already better than a young Federer?", "Would Serena Williams beat a top-10 men's player?", "Is clay the ultimate test of a true tennis champion?", "Which Slam is the hardest to win — and why?"],
-    analystA: { Role: "The Tactician", accent: "#ffd700", bg: "#181200", label: "Technique & Style" },
-    analystB: { Role: "The Statistician", accent: "#ff4081", bg: "#180008", label: "Career Data & Numbers" },
+    analystA: { Role: "The Tactician",    accent: "#ffd700", label: "Technique & Style" },
+    analystB: { Role: "The Statistician", accent: "#ff4081", label: "Career Data & Numbers" },
   }
 };
 
-//─── API HELPERS ─────────────────────────────────────────────────────────────
+// ─── THEME ───────────────────────────────────────────────────────────────────
+
+const DARK = {
+  bgApp:     "#080808",
+  bgSide:    "#040404",
+  bgCard:    "#0d0d0d",
+  bgInput:   "#0e0e0e",
+  bgItem:    "#0c0c0c",
+  border:    "#111111",
+  border2:   "#1f1f1f",
+  border3:   "#1a1a1a",
+  text:      "#ffffff",
+  text2:     "#cccccc",
+  text3:     "#aaaaaa",
+  text4:     "#888888",
+  text5:     "#555555",
+  textFaint: "#333333",
+};
+
+const LIGHT = {
+  bgApp:     "#f4f4f4",
+  bgSide:    "#ffffff",
+  bgCard:    "#fafafa",
+  bgInput:   "#f0f0f0",
+  bgItem:    "#f7f7f7",
+  border:    "#e0e0e0",
+  border2:   "#d5d5d5",
+  border3:   "#e8e8e8",
+  text:      "#0a0a0a",
+  text2:     "#222222",
+  text3:     "#444444",
+  text4:     "#666666",
+  text5:     "#888888",
+  textFaint: "#aaaaaa",
+};
+
+// ─── API HELPERS ─────────────────────────────────────────────────────────────
 
 async function getWikiImage(title) {
   const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
@@ -36,11 +72,8 @@ async function getWikiImage(title) {
 
 async function getPlayerImage(name) {
   try {
-    // 1. Try direct Wikipedia lookup
     const direct = await getWikiImage(name);
     if (direct) return direct;
-
-    // 2. Fallback: search Wikipedia to find the closest matching article
     const searchRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(name)}&format=json&origin=*&srlimit=1`);
     const searchData = await searchRes.json();
     const topTitle = searchData?.query?.search?.[0]?.title;
@@ -48,19 +81,14 @@ async function getPlayerImage(name) {
       const fallback = await getWikiImage(topTitle);
       if (fallback) return fallback;
     }
-
-    // 3. Fallback: TheSportsDB (free, no API key, great for sports players)
     const sdbRes = await fetch(`https://www.thesportsdb.com/api/v1/json/3/searchplayers.php?p=${encodeURIComponent(name)}`);
     const sdbData = await sdbRes.json();
     const player = sdbData?.player?.[0];
     if (player?.strThumb) return player.strThumb;
     if (player?.strCutout) return player.strCutout;
-
-    // 4. Fallback: DuckDuckGo Instant Answer image
     const ddgRes = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(name)}&format=json&pretty=0`);
     const ddgData = await ddgRes.json();
     if (ddgData.Image) return `https://duckduckgo.com${ddgData.Image}`;
-
     return null;
   } catch { return null; }
 }
@@ -69,31 +97,31 @@ async function getPlayerImage(name) {
 
 function LoadDots({ color }) {
   return (
-    <div style={{ display: "flex", gap: "6px", padding: "12px 0" }}>
+    <div style={{ display:"flex", gap:"6px", padding:"12px 0" }}>
       {[0,1,2].map(i => <div key={i} style={{ width:"7px", height:"7px", borderRadius:"50%", background:color, animation:`pulse 1.2s ease-in-out ${i*0.2}s infinite` }}/>)}
     </div>
   );
 }
 
-function PlayerAvatar({ image, name, size=80 }) {
+function PlayerAvatar({ image, name, size=80, T }) {
   const [err, setErr] = useState(false);
   return (!image || err)
-    ? <div style={{ width:size, height:size, background:"#111", borderRadius:"4px", border:"1px solid #1f1f1f", display:"flex", alignItems:"center", justifyContent:"center", fontSize:size*0.38, color:"#333", flexShrink:0 }}>👤</div>
+    ? <div style={{ width:size, height:size, background:T.bgCard, borderRadius:"4px", border:`1px solid ${T.border2}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:size*0.38, color:T.border2, flexShrink:0 }}>👤</div>
     : <img src={image} alt={name} onError={() => setErr(true)} style={{ width:size, height:size, objectFit:"cover", objectPosition:"top", borderRadius:"4px", display:"block", flexShrink:0 }}/>;
 }
 
-const L = { fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#888", letterSpacing:"3px", marginBottom:"12px", textTransform:"uppercase" };
 const SB = (color) => ({ background:color||"#fff", border:"none", padding:"14px 26px", color:"#000", fontFamily:"'Space Mono',monospace", fontSize:"10px", letterSpacing:"2px", fontWeight:"700", cursor:"pointer", whiteSpace:"nowrap", borderRadius:"0 4px 4px 0", transition:"opacity 0.2s" });
-const IS = { background:"#0e0e0e", border:"1px solid #1f1f1f", borderRadius:"4px", padding:"14px 18px", color:"#fff", fontFamily:"'DM Sans',sans-serif", fontSize:"14px", outline:"none" };
 
 // ─── DUAL ANALYST ────────────────────────────────────────────────────────────
 
-function DualAnalyst({ sport, onSave }) {
+function DualAnalyst({ sport, onSave, T }) {
   const [q, setQ] = useState(""); const [rA, setRA] = useState(""); const [rB, setRB] = useState("");
   const [lA, setLA] = useState(false); const [lB, setLB] = useState(false);
   const [sourcesA, setSourcesA] = useState([]); const [sourcesB, setSourcesB] = useState([]);
   const [hist, setHist] = useState([]);
   const { analystA: aA, analystB: aB, suggestions, color } = sport;
+
+  const IS = { background:T.bgInput, border:`1px solid ${T.border2}`, borderRadius:"4px", padding:"14px 18px", color:T.text, fontFamily:"'DM Sans',sans-serif", fontSize:"14px", outline:"none" };
 
   const ask = async (query) => {
     const qry = query || q; if (!qry.trim()) return;
@@ -135,31 +163,31 @@ function DualAnalyst({ sport, onSave }) {
 
   return (
     <div>
-      <div style={L}>Ask the Analysts</div>
-      <div style={{ display:"flex", border:"1px solid #1f1f1f", borderRadius:"4px", overflow:"hidden", marginBottom:"12px" }}>
-        <input value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==="Enter"&&ask()} placeholder={`Ask anything about ${sport.label.toLowerCase()}...`} style={{ flex:1, background:"#0e0e0e", border:"none", padding:"14px 18px", color:"#fff", fontFamily:"'DM Sans',sans-serif", fontSize:"14px", outline:"none", borderRadius:"4px 0 0 4px" }}/>
+      <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:T.text4, letterSpacing:"3px", marginBottom:"12px", textTransform:"uppercase" }}>Ask the Analysts</div>
+      <div style={{ display:"flex", border:`1px solid ${T.border2}`, borderRadius:"4px", overflow:"hidden", marginBottom:"12px" }}>
+        <input value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==="Enter"&&ask()} placeholder={`Ask anything about ${sport.label.toLowerCase()}...`} style={{ flex:1, background:T.bgInput, border:"none", padding:"14px 18px", color:T.text, fontFamily:"'DM Sans',sans-serif", fontSize:"14px", outline:"none", borderRadius:"4px 0 0 4px" }}/>
         <button onClick={()=>ask()} style={SB(color)}>ANALYSE →</button>
       </div>
       <div style={{ display:"flex", gap:"8px", marginBottom:"28px", flexWrap:"wrap" }}>
         {suggestions.map((s,i) => (
-          <button key={i} onClick={()=>ask(s)} style={{ background:"transparent", border:"1px solid #2a2a2a", borderRadius:"20px", padding:"6px 14px", color:"#999", fontFamily:"'DM Sans',sans-serif", fontSize:"11px", cursor:"pointer", transition:"all 0.2s" }}>{s}</button>
+          <button key={i} onClick={()=>ask(s)} style={{ background:"transparent", border:`1px solid ${T.border3}`, borderRadius:"20px", padding:"6px 14px", color:T.text4, fontFamily:"'DM Sans',sans-serif", fontSize:"11px", cursor:"pointer", transition:"all 0.2s" }}>{s}</button>
         ))}
       </div>
       <div style={{ display:"flex", gap:"16px", marginBottom:"28px" }}>
         {[{a:aA,r:rA,l:lA,sources:sourcesA},{a:aB,r:rB,l:lB,sources:sourcesB}].map(({a,r,l,sources}) => (
-          <div key={a.Role} style={{ flex:1, background:a.bg, border:`1px solid ${a.accent}22`, borderRadius:"8px", padding:"24px", position:"relative", minHeight:"240px", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+          <div key={a.Role} style={{ flex:1, background:T.bgCard, border:`1px solid ${a.accent}22`, borderRadius:"8px", padding:"24px", position:"relative", minHeight:"240px", display:"flex", flexDirection:"column", overflow:"hidden" }}>
             <div style={{ position:"absolute", top:0, left:0, right:0, height:"2px", background:`linear-gradient(90deg,${a.accent},${a.accent}00)` }}/>
             <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"28px", color:a.accent, letterSpacing:"4px" }}>{a.Role}</div>
             <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:a.accent+"cc", letterSpacing:"2px", marginBottom:"4px" }}>{a.label}</div>
             <div style={{ height:"1px", background:`linear-gradient(90deg,${a.accent}33,transparent)`, marginBottom:"16px", marginTop:"10px" }}/>
-            {l ? <LoadDots color={a.accent}/> : r ? <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", lineHeight:"1.9", color:"#ccc", margin:0 }}>{r}</p> : <p style={{ fontFamily:"'Space Mono',monospace", fontSize:"10px", color:a.accent+"55", margin:0 }}>AWAITING QUERY...</p>}
+            {l ? <LoadDots color={a.accent}/> : r ? <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", lineHeight:"1.9", color:T.text2, margin:0 }}>{r}</p> : <p style={{ fontFamily:"'Space Mono',monospace", fontSize:"10px", color:a.accent+"55", margin:0 }}>AWAITING QUERY...</p>}
             {sources?.length > 0 && (
               <div style={{ marginTop:"16px", borderTop:`1px solid ${a.accent}11`, paddingTop:"12px" }}>
                 <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:a.accent+"cc", letterSpacing:"2px", marginBottom:"8px" }}>RETRIEVED CONTEXT</div>
                 {sources.map((s,i) => (
-                  <div key={i} style={{ background:"#ffffff08", border:`1px solid ${a.accent}11`, borderRadius:"4px", padding:"8px 10px", marginBottom:"4px" }}>
+                  <div key={i} style={{ background:T.bgInput+"88", border:`1px solid ${a.accent}11`, borderRadius:"4px", padding:"8px 10px", marginBottom:"4px" }}>
                     <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:a.accent+"cc", letterSpacing:"1px" }}>{s.type?.toUpperCase()} · {s.sport}</span>
-                    <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"11px", color:"#aaa", margin:"4px 0 0", lineHeight:"1.5" }}>{s.snippet}</p>
+                    <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"11px", color:T.text3, margin:"4px 0 0", lineHeight:"1.5" }}>{s.snippet}</p>
                   </div>
                 ))}
               </div>
@@ -169,11 +197,11 @@ function DualAnalyst({ sport, onSave }) {
       </div>
       {hist.length>0 && (
         <div>
-          <div style={L}>Recent Queries</div>
+          <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:T.text4, letterSpacing:"3px", marginBottom:"12px", textTransform:"uppercase" }}>Recent Queries</div>
           {hist.map((h,i) => (
-            <div key={i} onClick={()=>ask(h.question)} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 16px", background:"#0c0c0c", border:"1px solid #161616", borderRadius:"6px", marginBottom:"6px", cursor:"pointer", transition:"border-color 0.2s" }}>
-              <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:"#bbb" }}>{h.question}</span>
-              <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#777" }}>{h.time}</span>
+            <div key={i} onClick={()=>ask(h.question)} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 16px", background:T.bgItem, border:`1px solid ${T.border3}`, borderRadius:"6px", marginBottom:"6px", cursor:"pointer", transition:"border-color 0.2s" }}>
+              <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:T.text2 }}>{h.question}</span>
+              <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:T.text5 }}>{h.time}</span>
             </div>
           ))}
         </div>
@@ -184,7 +212,7 @@ function DualAnalyst({ sport, onSave }) {
 
 // ─── PLAYER PROFILE ──────────────────────────────────────────────────────────
 
-function PlayerProfile({ sport, onSave }) {
+function PlayerProfile({ sport, onSave, T }) {
   const [s, setS] = useState(""); const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState(null); const [image, setImage] = useState(null);
   const { color, label } = sport;
@@ -208,57 +236,55 @@ function PlayerProfile({ sport, onSave }) {
 
   return (
     <div>
-      <div style={L}>Search {label} Player</div>
-      <div style={{ display:"flex", border:"1px solid #1f1f1f", borderRadius:"4px", overflow:"hidden", marginBottom:"32px" }}>
-        <input value={s} onChange={e=>setS(e.target.value)} onKeyDown={e=>e.key==="Enter"&&search()} placeholder={`e.g. ${label==="Cricket"?"Virat Kohli":label==="Tennis"?"Roger Federer":"Lionel Messi"}`} style={{ flex:1, background:"#0e0e0e", border:"none", padding:"14px 18px", color:"#fff", fontFamily:"'DM Sans',sans-serif", fontSize:"14px", outline:"none" }}/>
+      <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:T.text4, letterSpacing:"3px", marginBottom:"12px", textTransform:"uppercase" }}>Search {label} Player</div>
+      <div style={{ display:"flex", border:`1px solid ${T.border2}`, borderRadius:"4px", overflow:"hidden", marginBottom:"32px" }}>
+        <input value={s} onChange={e=>setS(e.target.value)} onKeyDown={e=>e.key==="Enter"&&search()} placeholder={`e.g. ${label==="Cricket"?"Virat Kohli":label==="Tennis"?"Roger Federer":"Lionel Messi"}`} style={{ flex:1, background:T.bgInput, border:"none", padding:"14px 18px", color:T.text, fontFamily:"'DM Sans',sans-serif", fontSize:"14px", outline:"none" }}/>
         <button onClick={search} style={SB(color)}>SEARCH →</button>
       </div>
       {loading && <LoadDots color={color}/>}
       {profile&&!profile.error&&(
         <div style={{ animation:"fadeIn 0.4s ease" }}>
-          <div style={{ display:"flex", gap:"0", marginBottom:"20px", background:"#0d0d0d", border:"1px solid #1a1a1a", borderRadius:"10px", overflow:"hidden" }}>
-            {/* Large photo panel */}
-            <div style={{ width:"180px", flexShrink:0, background:"#0a0a0a", position:"relative" }}>
+          <div style={{ display:"flex", gap:"0", marginBottom:"20px", background:T.bgCard, border:`1px solid ${T.border3}`, borderRadius:"10px", overflow:"hidden" }}>
+            <div style={{ width:"180px", flexShrink:0, background:T.bgInput, position:"relative" }}>
               {image
                 ? <img src={image} alt={profile.name} onError={e => { e.target.style.display="none"; e.target.nextElementSibling.style.display="flex"; }} style={{ width:"100%", height:"100%", minHeight:"220px", objectFit:"cover", objectPosition:"center top", display:"block" }}/>
                 : null}
-              <div style={{ display: image ? "none" : "flex", width:"100%", minHeight:"220px", alignItems:"center", justifyContent:"center", fontSize:"52px", color:"#1f1f1f" }}>👤</div>
-              <div style={{ position:"absolute", bottom:0, left:0, right:0, height:"60px", background:"linear-gradient(transparent,#0d0d0d)" }}/>
+              <div style={{ display:image?"none":"flex", width:"100%", minHeight:"220px", alignItems:"center", justifyContent:"center", fontSize:"52px", color:T.border2 }}>👤</div>
+              <div style={{ position:"absolute", bottom:0, left:0, right:0, height:"60px", background:`linear-gradient(transparent,${T.bgCard})` }}/>
             </div>
-            {/* Info panel */}
             <div style={{ flex:1, padding:"24px 26px" }}>
-              <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"36px", color:"#fff", letterSpacing:"3px", lineHeight:1 }}>{profile.name}</div>
+              <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"36px", color:T.text, letterSpacing:"3px", lineHeight:1 }}>{profile.name}</div>
               <div style={{ display:"flex", gap:"8px", marginTop:"10px", flexWrap:"wrap" }}>
                 {[profile.nationality,profile.position,profile.currentTeam,`Age: ${profile.age}`].map((item,i) => (
-                  <span key={i} style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#aaa", letterSpacing:"1px", background:"#161616", padding:"5px 10px", borderRadius:"20px", border:"1px solid #333" }}>{item}</span>
+                  <span key={i} style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:T.text3, letterSpacing:"1px", background:T.bgInput, padding:"5px 10px", borderRadius:"20px", border:`1px solid ${T.border2}` }}>{item}</span>
                 ))}
               </div>
-              <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", color:"#ccc", lineHeight:"1.8", margin:"14px 0 0" }}>{profile.careerSummary}</p>
+              <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", color:T.text2, lineHeight:"1.8", margin:"14px 0 0" }}>{profile.careerSummary}</p>
             </div>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"16px" }}>
-            <div style={{ background:"#0d0d0d", border:`1px solid ${color}22`, borderRadius:"10px", padding:"20px" }}>
+            <div style={{ background:T.bgCard, border:`1px solid ${color}22`, borderRadius:"10px", padding:"20px" }}>
               <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color, letterSpacing:"2px", marginBottom:"12px" }}>ACHIEVEMENTS</div>
               {profile.achievements?.map((a,i) => (
                 <div key={i} style={{ display:"flex", gap:"10px", marginBottom:"9px", alignItems:"flex-start" }}>
                   <span style={{ color, fontSize:"10px", marginTop:"2px" }}>▸</span>
-                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:"#aaa", lineHeight:"1.6" }}>{a}</span>
+                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:T.text3, lineHeight:"1.6" }}>{a}</span>
                 </div>
               ))}
             </div>
-            <div style={{ background:"#0d0d0d", border:"1px solid #1a1a1a", borderRadius:"10px", padding:"20px" }}>
-              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#888", letterSpacing:"2px", marginBottom:"12px" }}>KEY STATS</div>
+            <div style={{ background:T.bgCard, border:`1px solid ${T.border3}`, borderRadius:"10px", padding:"20px" }}>
+              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:T.text4, letterSpacing:"2px", marginBottom:"12px" }}>KEY STATS</div>
               {profile.keyStats?.map((s,i) => (
                 <div key={i} style={{ display:"flex", gap:"10px", marginBottom:"9px", alignItems:"flex-start" }}>
-                  <span style={{ color:"#888", fontSize:"10px", marginTop:"2px" }}>▸</span>
-                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:"#aaa", lineHeight:"1.6" }}>{s}</span>
+                  <span style={{ color:T.text4, fontSize:"10px", marginTop:"2px" }}>▸</span>
+                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:T.text3, lineHeight:"1.6" }}>{s}</span>
                 </div>
               ))}
             </div>
           </div>
-          <div style={{ marginTop:"16px", background:"#0e0e0e", border:`1px solid ${color}18`, borderRadius:"10px", padding:"20px 24px" }}>
-            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#888", letterSpacing:"2px", marginBottom:"8px" }}>LEGACY</div>
-            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"14px", color:"#ccc", fontStyle:"italic", margin:0, lineHeight:"1.7" }}>"{profile.legacyQuote}"</p>
+          <div style={{ marginTop:"16px", background:T.bgCard, border:`1px solid ${color}18`, borderRadius:"10px", padding:"20px 24px" }}>
+            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:T.text4, letterSpacing:"2px", marginBottom:"8px" }}>LEGACY</div>
+            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"14px", color:T.text2, fontStyle:"italic", margin:0, lineHeight:"1.7" }}>"{profile.legacyQuote}"</p>
           </div>
         </div>
       )}
@@ -269,10 +295,11 @@ function PlayerProfile({ sport, onSave }) {
 
 // ─── HEAD TO HEAD ────────────────────────────────────────────────────────────
 
-function HeadToHead({ sport, onSave }) {
+function HeadToHead({ sport, onSave, T }) {
   const [p1,setP1]=useState(""); const [p2,setP2]=useState("");
   const [loading,setLoading]=useState(false); const [result,setResult]=useState(null); const [imgs,setImgs]=useState([null,null]);
   const { color, label, analystA: aA, analystB: aB } = sport;
+  const IS = { background:T.bgInput, border:`1px solid ${T.border2}`, borderRadius:"4px", padding:"14px 18px", color:T.text, fontFamily:"'DM Sans',sans-serif", fontSize:"14px", outline:"none" };
 
   const compare = async () => {
     if (!p1.trim()||!p2.trim()) return; setLoading(true); setResult(null); setImgs([null,null]);
@@ -293,47 +320,46 @@ function HeadToHead({ sport, onSave }) {
   };
 
   const colors = [aA.accent, aB.accent];
-  const bgs = [aA.bg, aB.bg];
 
   return (
     <div>
-      <div style={L}>Compare Two {label} Players</div>
+      <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:T.text4, letterSpacing:"3px", marginBottom:"12px", textTransform:"uppercase" }}>Compare Two {label} Players</div>
       <div style={{ display:"flex", gap:"12px", marginBottom:"32px", alignItems:"center" }}>
-        <input value={p1} onChange={e=>setP1(e.target.value)} placeholder="Player 1" style={{...IS, flex:1, borderRadius:"4px"}} onKeyDown={e=>e.key==="Enter"&&compare()}/>
-        <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"24px", color:"#666", padding:"0 4px" }}>VS</div>
-        <input value={p2} onChange={e=>setP2(e.target.value)} placeholder="Player 2" style={{...IS, flex:1, borderRadius:"4px"}} onKeyDown={e=>e.key==="Enter"&&compare()}/>
+        <input value={p1} onChange={e=>setP1(e.target.value)} placeholder="Player 1" style={{...IS, flex:1}} onKeyDown={e=>e.key==="Enter"&&compare()}/>
+        <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"24px", color:T.text5, padding:"0 4px" }}>VS</div>
+        <input value={p2} onChange={e=>setP2(e.target.value)} placeholder="Player 2" style={{...IS, flex:1}} onKeyDown={e=>e.key==="Enter"&&compare()}/>
         <button onClick={compare} style={{...SB(color), borderRadius:"4px"}}>COMPARE →</button>
       </div>
       {loading&&<LoadDots color={color}/>}
       {result&&!result.error&&(
         <div style={{ animation:"fadeIn 0.4s ease" }}>
           <div style={{ display:"flex", gap:"16px", marginBottom:"16px" }}>
-            {[{p:result.player1,img:imgs[0],c:colors[0],bg:bgs[0]},{p:result.player2,img:imgs[1],c:colors[1],bg:bgs[1]}].map(({p,img,c,bg}) => (
-              <div key={p.name} style={{ flex:1, background:bg, border:`1px solid ${c}22`, borderRadius:"10px", padding:"22px", overflow:"hidden", position:"relative" }}>
+            {[{p:result.player1,img:imgs[0],c:colors[0]},{p:result.player2,img:imgs[1],c:colors[1]}].map(({p,img,c}) => (
+              <div key={p.name} style={{ flex:1, background:T.bgCard, border:`1px solid ${c}22`, borderRadius:"10px", padding:"22px", overflow:"hidden", position:"relative" }}>
                 <div style={{ position:"absolute", top:0, left:0, right:0, height:"2px", background:`linear-gradient(90deg,${c},${c}00)` }}/>
                 <div style={{ display:"flex", gap:"16px", marginBottom:"16px", alignItems:"center" }}>
-                  <PlayerAvatar image={img} name={p.name} size={72}/>
+                  <PlayerAvatar image={img} name={p.name} size={72} T={T}/>
                   <div>
                     <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"24px", color:c, letterSpacing:"3px" }}>{p.name}</div>
                     <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"18px", color:c, marginTop:"4px", fontWeight:"700" }}>{p.rating}</div>
                   </div>
                 </div>
-                <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:"#bbb", lineHeight:"1.8", margin:"0 0 16px" }}>{p.summary}</p>
+                <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:T.text2, lineHeight:"1.8", margin:"0 0 16px" }}>{p.summary}</p>
                 <div style={{ marginBottom:"12px" }}>
                   <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:c+"dd", letterSpacing:"2px", marginBottom:"6px" }}>STRENGTHS</div>
-                  {p.strengths?.map((s,i) => <div key={i} style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"11px", color:"#aaa", marginBottom:"4px" }}>+ {s}</div>)}
+                  {p.strengths?.map((s,i) => <div key={i} style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"11px", color:T.text3, marginBottom:"4px" }}>+ {s}</div>)}
                 </div>
                 <div>
                   <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#ff4444cc", letterSpacing:"2px", marginBottom:"6px" }}>WEAKNESSES</div>
-                  {p.weaknesses?.map((w,i) => <div key={i} style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"11px", color:"#bbb", marginBottom:"4px" }}>− {w}</div>)}
+                  {p.weaknesses?.map((w,i) => <div key={i} style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"11px", color:T.text3, marginBottom:"4px" }}>− {w}</div>)}
                 </div>
               </div>
             ))}
           </div>
-          <div style={{ background:"#0e0e0e", border:`1px solid ${color}18`, borderRadius:"10px", padding:"20px 24px" }}>
-            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#888", letterSpacing:"2px", marginBottom:"8px" }}>VERDICT</div>
-            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", color:"#ccc", margin:"0 0 12px", lineHeight:"1.8" }}>{result.verdict}</p>
-            <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"16px", color:"#fff", letterSpacing:"3px" }}>WINNER: <span style={{ color }}>{result.winner}</span></div>
+          <div style={{ background:T.bgCard, border:`1px solid ${color}18`, borderRadius:"10px", padding:"20px 24px" }}>
+            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:T.text4, letterSpacing:"2px", marginBottom:"8px" }}>VERDICT</div>
+            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", color:T.text2, margin:"0 0 12px", lineHeight:"1.8" }}>{result.verdict}</p>
+            <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"16px", color:T.text, letterSpacing:"3px" }}>WINNER: <span style={{ color }}>{result.winner}</span></div>
           </div>
         </div>
       )}
@@ -344,7 +370,7 @@ function HeadToHead({ sport, onSave }) {
 
 // ─── TIMELINE ────────────────────────────────────────────────────────────────
 
-function Timeline({ sport, onSave }) {
+function Timeline({ sport, onSave, T }) {
   const [s,setS]=useState(""); const [loading,setLoading]=useState(false);
   const [timeline,setTimeline]=useState(null); const [image,setImage]=useState(null);
   const { color, label } = sport;
@@ -371,39 +397,39 @@ function Timeline({ sport, onSave }) {
 
   return (
     <div>
-      <div style={L}>Career Timeline</div>
-      <div style={{ display:"flex", border:"1px solid #1f1f1f", borderRadius:"4px", overflow:"hidden", marginBottom:"32px" }}>
-        <input value={s} onChange={e=>setS(e.target.value)} onKeyDown={e=>e.key==="Enter"&&search()} placeholder={`e.g. ${label==="Cricket"?"Sachin Tendulkar":label==="Tennis"?"Serena Williams":"Cristiano Ronaldo"}`} style={{ flex:1, background:"#0e0e0e", border:"none", padding:"14px 18px", color:"#fff", fontFamily:"'DM Sans',sans-serif", fontSize:"14px", outline:"none" }}/>
+      <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:T.text4, letterSpacing:"3px", marginBottom:"12px", textTransform:"uppercase" }}>Career Timeline</div>
+      <div style={{ display:"flex", border:`1px solid ${T.border2}`, borderRadius:"4px", overflow:"hidden", marginBottom:"32px" }}>
+        <input value={s} onChange={e=>setS(e.target.value)} onKeyDown={e=>e.key==="Enter"&&search()} placeholder={`e.g. ${label==="Cricket"?"Sachin Tendulkar":label==="Tennis"?"Serena Williams":"Cristiano Ronaldo"}`} style={{ flex:1, background:T.bgInput, border:"none", padding:"14px 18px", color:T.text, fontFamily:"'DM Sans',sans-serif", fontSize:"14px", outline:"none" }}/>
         <button onClick={search} style={SB(color)}>TIMELINE →</button>
       </div>
       {loading&&<LoadDots color={color}/>}
       {timeline&&!timeline.error&&(
         <div style={{ animation:"fadeIn 0.4s ease" }}>
-          <div style={{ display:"flex", gap:"0", marginBottom:"30px", background:"#0d0d0d", border:"1px solid #1a1a1a", borderRadius:"10px", overflow:"hidden" }}>
-            <div style={{ width:"120px", flexShrink:0, background:"#0a0a0a", position:"relative" }}>
+          <div style={{ display:"flex", gap:"0", marginBottom:"30px", background:T.bgCard, border:`1px solid ${T.border3}`, borderRadius:"10px", overflow:"hidden" }}>
+            <div style={{ width:"120px", flexShrink:0, background:T.bgInput, position:"relative" }}>
               {image
                 ? <img src={image} alt={timeline.name} onError={e => { e.target.style.display="none"; e.target.nextElementSibling.style.display="flex"; }} style={{ width:"100%", height:"100%", minHeight:"140px", objectFit:"cover", objectPosition:"top", display:"block" }}/>
                 : null}
-              <div style={{ display: image ? "none" : "flex", width:"100%", minHeight:"140px", alignItems:"center", justifyContent:"center", fontSize:"40px", color:"#1f1f1f" }}>👤</div>
-              <div style={{ position:"absolute", bottom:0, left:0, right:0, height:"40px", background:"linear-gradient(transparent,#0d0d0d)" }}/>
+              <div style={{ display:image?"none":"flex", width:"100%", minHeight:"140px", alignItems:"center", justifyContent:"center", fontSize:"40px", color:T.border2 }}>👤</div>
+              <div style={{ position:"absolute", bottom:0, left:0, right:0, height:"40px", background:`linear-gradient(transparent,${T.bgCard})` }}/>
             </div>
             <div style={{ flex:1, padding:"20px 24px", display:"flex", flexDirection:"column", justifyContent:"center" }}>
-              <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"32px", color:"#fff", letterSpacing:"4px" }}>{timeline.name}</div>
-              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#888", letterSpacing:"2px", marginTop:"4px" }}>CAREER TIMELINE</div>
+              <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"32px", color:T.text, letterSpacing:"4px" }}>{timeline.name}</div>
+              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:T.text4, letterSpacing:"2px", marginTop:"4px" }}>CAREER TIMELINE</div>
             </div>
           </div>
           <div style={{ position:"relative", paddingLeft:"42px" }}>
-            <div style={{ position:"absolute", left:"15px", top:0, bottom:0, width:"1px", background:"linear-gradient(180deg,#1a1a1a,transparent)" }}/>
+            <div style={{ position:"absolute", left:"15px", top:0, bottom:0, width:"1px", background:`linear-gradient(180deg,${T.border3},transparent)` }}/>
             {timeline.events?.map((e,i) => {
               const c = typeColor[e.type]||"#fff";
               return (
                 <div key={i} style={{ position:"relative", marginBottom:"16px", animation:`fadeIn 0.4s ease ${i*0.06}s both` }}>
                   <div style={{ position:"absolute", left:"-32px", top:"50%", transform:"translateY(-50%)", width:"12px", height:"12px", borderRadius:"50%", background:c, boxShadow:`0 0 10px ${c}66` }}/>
-                  <div style={{ background:"#0d0d0d", border:`1px solid ${c}1a`, borderRadius:"8px", padding:"14px 18px", display:"flex", gap:"16px", alignItems:"flex-start" }}>
+                  <div style={{ background:T.bgCard, border:`1px solid ${c}1a`, borderRadius:"8px", padding:"14px 18px", display:"flex", gap:"16px", alignItems:"flex-start" }}>
                     <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"22px", color:c, letterSpacing:"2px", minWidth:"56px" }}>{e.year}</div>
                     <div style={{ flex:1 }}>
                       <span style={{ marginRight:"8px" }}>{typeIcon[e.type]}</span>
-                      <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", color:"#bbb", lineHeight:"1.7" }}>{e.event}</span>
+                      <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", color:T.text2, lineHeight:"1.7" }}>{e.event}</span>
                     </div>
                     <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:c+"cc", letterSpacing:"1px", textTransform:"uppercase", paddingTop:"4px" }}>{e.type}</div>
                   </div>
@@ -420,7 +446,7 @@ function Timeline({ sport, onSave }) {
 
 // ─── AUTH MODAL ──────────────────────────────────────────────────────────────
 
-function AuthModal({ onClose }) {
+function AuthModal({ onClose, T }) {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState(""); const [password, setPassword] = useState("");
   const [error, setError] = useState(""); const [loading, setLoading] = useState(false);
@@ -442,44 +468,35 @@ function AuthModal({ onClose }) {
   };
 
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000, animation:"fadeIn 0.2s ease" }}>
-      <div style={{ background:"#0d0d0d", border:"1px solid #1f1f1f", borderRadius:"12px", padding:"36px", width:"360px", position:"relative" }}>
-        <button onClick={onClose} style={{ position:"absolute", top:"16px", right:"16px", background:"none", border:"none", color:"#444", fontSize:"18px", cursor:"pointer" }}>✕</button>
-
-        <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"28px", color:"#fff", letterSpacing:"4px", marginBottom:"4px" }}>SPORTIQ</div>
-        <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#999", letterSpacing:"2px", marginBottom:"28px" }}>SIGN IN TO SAVE YOUR SEARCHES</div>
-
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000, animation:"fadeIn 0.2s ease" }}>
+      <div style={{ background:T.bgCard, border:`1px solid ${T.border2}`, borderRadius:"12px", padding:"36px", width:"360px", position:"relative" }}>
+        <button onClick={onClose} style={{ position:"absolute", top:"16px", right:"16px", background:"none", border:"none", color:T.text4, fontSize:"18px", cursor:"pointer" }}>✕</button>
+        <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"28px", color:T.text, letterSpacing:"4px", marginBottom:"4px" }}>SPORTIQ</div>
+        <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:T.text4, letterSpacing:"2px", marginBottom:"28px" }}>SIGN IN TO SAVE YOUR SEARCHES</div>
         {sent ? (
           <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"13px", color:"#00ff87", textAlign:"center", lineHeight:"1.8" }}>
             Check your email to confirm your account!
           </div>
         ) : (
           <>
-            {/* Google Button */}
             <button onClick={handleGoogle} style={{ width:"100%", background:"#fff", border:"none", borderRadius:"8px", padding:"12px", display:"flex", alignItems:"center", justifyContent:"center", gap:"10px", cursor:"pointer", marginBottom:"20px", fontFamily:"'DM Sans',sans-serif", fontSize:"14px", fontWeight:"500" }}>
               <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
               Continue with Google
             </button>
-
             <div style={{ display:"flex", alignItems:"center", gap:"12px", marginBottom:"20px" }}>
-              <div style={{ flex:1, height:"1px", background:"#1f1f1f" }}/>
-              <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#777" }}>OR</span>
-              <div style={{ flex:1, height:"1px", background:"#1f1f1f" }}/>
+              <div style={{ flex:1, height:"1px", background:T.border2 }}/>
+              <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:T.text5 }}>OR</span>
+              <div style={{ flex:1, height:"1px", background:T.border2 }}/>
             </div>
-
-            {/* Email/Password */}
-            <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" type="email" style={{ width:"100%", background:"#111", border:"1px solid #222", borderRadius:"6px", padding:"12px 14px", color:"#fff", fontFamily:"'DM Sans',sans-serif", fontSize:"13px", marginBottom:"10px", outline:"none" }}/>
-            <input value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" type="password" onKeyDown={e=>e.key==="Enter"&&handleEmail()} style={{ width:"100%", background:"#111", border:"1px solid #222", borderRadius:"6px", padding:"12px 14px", color:"#fff", fontFamily:"'DM Sans',sans-serif", fontSize:"13px", marginBottom:"16px", outline:"none" }}/>
-
+            <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" type="email" style={{ width:"100%", background:T.bgInput, border:`1px solid ${T.border2}`, borderRadius:"6px", padding:"12px 14px", color:T.text, fontFamily:"'DM Sans',sans-serif", fontSize:"13px", marginBottom:"10px", outline:"none" }}/>
+            <input value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" type="password" onKeyDown={e=>e.key==="Enter"&&handleEmail()} style={{ width:"100%", background:T.bgInput, border:`1px solid ${T.border2}`, borderRadius:"6px", padding:"12px 14px", color:T.text, fontFamily:"'DM Sans',sans-serif", fontSize:"13px", marginBottom:"16px", outline:"none" }}/>
             {error && <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:"#ff6b35", marginBottom:"12px" }}>{error}</div>}
-
-            <button onClick={handleEmail} disabled={loading} style={{ width:"100%", background:"#fff", border:"none", borderRadius:"6px", padding:"12px", fontFamily:"'Space Mono',monospace", fontSize:"11px", letterSpacing:"2px", fontWeight:"700", cursor:"pointer", marginBottom:"16px", opacity: loading ? 0.6 : 1 }}>
+            <button onClick={handleEmail} disabled={loading} style={{ width:"100%", background:T.text, border:"none", borderRadius:"6px", padding:"12px", fontFamily:"'Space Mono',monospace", fontSize:"11px", letterSpacing:"2px", fontWeight:"700", cursor:"pointer", color:T.bgApp, marginBottom:"16px", opacity: loading ? 0.6 : 1 }}>
               {loading ? "..." : mode === "login" ? "SIGN IN" : "CREATE ACCOUNT"}
             </button>
-
-            <div style={{ textAlign:"center", fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:"#444" }}>
+            <div style={{ textAlign:"center", fontFamily:"'DM Sans',sans-serif", fontSize:"12px", color:T.text4 }}>
               {mode === "login" ? "No account? " : "Have an account? "}
-              <span onClick={() => { setMode(mode==="login"?"signup":"login"); setError(""); }} style={{ color:"#fff", cursor:"pointer", textDecoration:"underline" }}>
+              <span onClick={() => { setMode(mode==="login"?"signup":"login"); setError(""); }} style={{ color:T.text, cursor:"pointer", textDecoration:"underline" }}>
                 {mode === "login" ? "Sign up" : "Sign in"}
               </span>
             </div>
@@ -499,22 +516,20 @@ const TABS = [
   { id:"timeline", label:"Timeline",       icon:"📅" },
 ];
 
-const BG_PRESETS = ["#080808","#0a0a1a","#0d0a14","#0a1410","#1a0a0a","#0d0d0d","#111827"];
-
 export default function App() {
   const [sportKey, setSportKey] = useState("football");
   const [tab, setTab] = useState("dual");
-  const [bgColor, setBgColor] = useState("#080808");
+  const [isDark, setIsDark] = useState(true);
   const [user, setUser] = useState(null);
   const [showAuth, setShowAuth] = useState(false);
   const [history, setHistory] = useState(() => {
     try { return JSON.parse(localStorage.getItem("sportiq_history") || "[]"); } catch { return []; }
   });
   const [showHistory, setShowHistory] = useState(true);
-  const sport = SPORTS[sportKey];
 
-  // Listen for auth state changes
-  // Warm up the Render backend on app load to avoid cold start delay
+  const sport = SPORTS[sportKey];
+  const T = isDark ? DARK : LIGHT;
+
   useEffect(() => {
     fetch(`${process.env.REACT_APP_API_URL}/api/health`).catch(() => {});
   }, []);
@@ -543,11 +558,9 @@ export default function App() {
   const saveSearch = async (query, feature) => {
     const entry = { query, feature, sport: sportKey, created_at: new Date().toISOString() };
     if (user) {
-      // Logged in — save to Supabase
       const { data } = await supabase.from("searches").insert({ user_id: user.id, ...entry }).select().single();
       if (data) setHistory(prev => [data, ...prev.slice(0, 29)]);
     } else {
-      // Not logged in — save to localStorage
       setHistory(prev => {
         const updated = [entry, ...prev.slice(0, 29)];
         localStorage.setItem("sportiq_history", JSON.stringify(updated));
@@ -560,34 +573,41 @@ export default function App() {
   const handleSignOut = async () => { await supabase.auth.signOut(); };
 
   return (
-    <div style={{ minHeight:"100vh", background:bgColor, display:"flex", flexDirection:"column" }}>
+    <div style={{ minHeight:"100vh", background:T.bgApp, display:"flex", flexDirection:"column" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap');
         @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
         @keyframes pulse { 0%,100%{opacity:0.3;transform:scale(0.8)} 50%{opacity:1;transform:scale(1.2)} }
         * { box-sizing:border-box; } input{outline:none;} button{cursor:pointer;}
-        ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-track { background:#0a0a0a; } ::-webkit-scrollbar-thumb { background:#222; border-radius:2px; }
+        ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-track { background:${T.bgApp}; } ::-webkit-scrollbar-thumb { background:${T.border2}; border-radius:2px; }
       `}</style>
 
       {/* ── Top Header ── */}
-      <div style={{ borderBottom:"1px solid #111", padding:"0 28px", background:"#040404", display:"flex", alignItems:"center", justifyContent:"space-between", height:"58px", flexShrink:0 }}>
+      <div style={{ borderBottom:`1px solid ${T.border}`, padding:"0 28px", background:T.bgSide, display:"flex", alignItems:"center", justifyContent:"space-between", height:"58px", flexShrink:0 }}>
         <div style={{ display:"flex", alignItems:"center", gap:"14px" }}>
           <div style={{ width:"32px", height:"32px", background:`linear-gradient(135deg,${sport.analystA.accent},${sport.analystB.accent})`, borderRadius:"8px", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"16px", transition:"background 0.4s", flexShrink:0 }}>{sport.emoji}</div>
           <div>
-            <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"22px", color:"#fff", letterSpacing:"5px", lineHeight:1 }}>SportIQ</div>
-            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#888", letterSpacing:"4px" }}>AI SPORTS PLATFORM</div>
+            <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"22px", color:T.text, letterSpacing:"5px", lineHeight:1 }}>SportIQ</div>
+            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:T.text4, letterSpacing:"4px" }}>AI SPORTS PLATFORM</div>
           </div>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:"16px" }}>
           <div style={{ width:"6px", height:"6px", borderRadius:"50%", background:"#00ff87", boxShadow:"0 0 6px #00ff8788" }}/>
+
+          {/* Dark / Light toggle */}
+          <button onClick={() => setIsDark(d => !d)} style={{ background:T.bgCard, border:`1px solid ${T.border2}`, borderRadius:"20px", padding:"6px 12px", display:"flex", alignItems:"center", gap:"6px", cursor:"pointer", transition:"all 0.2s" }}>
+            <span style={{ fontSize:"13px" }}>{isDark ? "☀️" : "🌙"}</span>
+            <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:T.text4, letterSpacing:"1px" }}>{isDark ? "LIGHT" : "DARK"}</span>
+          </button>
+
           {user ? (
             <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
               <img src={user.user_metadata?.avatar_url} alt="" onError={e=>e.target.style.display="none"} style={{ width:"28px", height:"28px", borderRadius:"50%", objectFit:"cover" }}/>
-              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:"#555" }}>{user.email?.split("@")[0] || user.user_metadata?.full_name}</div>
-              <button onClick={handleSignOut} style={{ background:"transparent", border:"1px solid #222", borderRadius:"6px", padding:"5px 10px", color:"#444", fontFamily:"'Space Mono',monospace", fontSize:"8px", letterSpacing:"1px", cursor:"pointer" }}>SIGN OUT</button>
+              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"9px", color:T.text5 }}>{user.email?.split("@")[0] || user.user_metadata?.full_name}</div>
+              <button onClick={handleSignOut} style={{ background:"transparent", border:`1px solid ${T.border2}`, borderRadius:"6px", padding:"5px 10px", color:T.text4, fontFamily:"'Space Mono',monospace", fontSize:"8px", letterSpacing:"1px", cursor:"pointer" }}>SIGN OUT</button>
             </div>
           ) : (
-            <button onClick={() => setShowAuth(true)} style={{ background:"#fff", border:"none", borderRadius:"6px", padding:"7px 14px", fontFamily:"'Space Mono',monospace", fontSize:"9px", letterSpacing:"2px", fontWeight:"700", cursor:"pointer" }}>SIGN IN</button>
+            <button onClick={() => setShowAuth(true)} style={{ background:T.text, border:"none", borderRadius:"6px", padding:"7px 14px", fontFamily:"'Space Mono',monospace", fontSize:"9px", letterSpacing:"2px", fontWeight:"700", cursor:"pointer", color:T.bgApp }}>SIGN IN</button>
           )}
         </div>
       </div>
@@ -596,23 +616,23 @@ export default function App() {
       <div style={{ display:"flex", flex:1, overflow:"hidden" }}>
 
         {/* ── Sidebar ── */}
-        <div style={{ width:"220px", borderRight:"1px solid #111", background:"#040404", display:"flex", flexDirection:"column", flexShrink:0, padding:"24px 0" }}>
+        <div style={{ width:"220px", borderRight:`1px solid ${T.border}`, background:T.bgSide, display:"flex", flexDirection:"column", flexShrink:0, padding:"24px 0" }}>
 
           {/* Sport Selector */}
           <div style={{ padding:"0 16px", marginBottom:"8px" }}>
-            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#555", letterSpacing:"3px", marginBottom:"12px", paddingLeft:"4px" }}>SPORT</div>
+            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:T.text5, letterSpacing:"3px", marginBottom:"12px", paddingLeft:"4px" }}>SPORT</div>
             {Object.entries(SPORTS).map(([key, s]) => {
               const isActive = sportKey === key;
               return (
                 <button key={key} onClick={() => handleSportChange(key)} style={{
-                  width:"100%", background: isActive ? s.color+"12" : "transparent",
-                  border: `1px solid ${isActive ? s.color+"40" : "transparent"}`,
+                  width:"100%", background: isActive ? s.color+"15" : "transparent",
+                  border: `1px solid ${isActive ? s.color+"44" : "transparent"}`,
                   borderRadius:"8px", padding:"10px 14px", cursor:"pointer",
                   display:"flex", alignItems:"center", gap:"10px", marginBottom:"4px",
                   transition:"all 0.2s", textAlign:"left"
                 }}>
                   <span style={{ fontSize:"18px" }}>{s.emoji}</span>
-                  <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"10px", letterSpacing:"2px", color: isActive ? s.color : "#fff" }}>{s.label.toUpperCase()}</span>
+                  <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"10px", letterSpacing:"2px", color: isActive ? s.color : T.text }}>{s.label.toUpperCase()}</span>
                   {isActive && <div style={{ marginLeft:"auto", width:"5px", height:"5px", borderRadius:"50%", background:s.color }}/>}
                 </button>
               );
@@ -620,23 +640,23 @@ export default function App() {
           </div>
 
           {/* Divider */}
-          <div style={{ height:"1px", background:"#111", margin:"16px 16px 20px" }}/>
+          <div style={{ height:"1px", background:T.border, margin:"16px 16px 20px" }}/>
 
           {/* Tab Navigation */}
           <div style={{ padding:"0 16px", flex:1 }}>
-            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#555", letterSpacing:"3px", marginBottom:"12px", paddingLeft:"4px" }}>FEATURES</div>
+            <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:T.text5, letterSpacing:"3px", marginBottom:"12px", paddingLeft:"4px" }}>FEATURES</div>
             {TABS.map(t => {
               const isActive = tab === t.id;
               return (
                 <button key={t.id} onClick={() => setTab(t.id)} style={{
-                  width:"100%", background: isActive ? sport.color+"10" : "transparent",
-                  border: `1px solid ${isActive ? sport.color+"30" : "transparent"}`,
+                  width:"100%", background: isActive ? sport.color+"12" : "transparent",
+                  border: `1px solid ${isActive ? sport.color+"33" : "transparent"}`,
                   borderRadius:"8px", padding:"11px 14px", cursor:"pointer",
                   display:"flex", alignItems:"center", gap:"10px", marginBottom:"4px",
                   transition:"all 0.2s", textAlign:"left"
                 }}>
                   <span style={{ fontSize:"14px" }}>{t.icon}</span>
-                  <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"10px", letterSpacing:"1px", color: isActive ? sport.color : "#fff" }}>{t.label.toUpperCase()}</span>
+                  <span style={{ fontFamily:"'Space Mono',monospace", fontSize:"10px", letterSpacing:"1px", color: isActive ? sport.color : T.text }}>{t.label.toUpperCase()}</span>
                 </button>
               );
             })}
@@ -645,17 +665,17 @@ export default function App() {
           {/* Search History */}
           {history.length > 0 && (
             <div style={{ padding:"0 16px", marginBottom:"8px" }}>
-              <div style={{ height:"1px", background:"#111", marginBottom:"16px" }}/>
+              <div style={{ height:"1px", background:T.border, marginBottom:"16px" }}/>
               <button onClick={() => setShowHistory(h => !h)} style={{ width:"100%", background:"transparent", border:"none", display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer", padding:"0 4px", marginBottom:"8px" }}>
-                <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#555", letterSpacing:"3px" }}>HISTORY</div>
-                <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#333" }}>{showHistory ? "▲" : "▼"}</div>
+                <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:T.text5, letterSpacing:"3px" }}>HISTORY</div>
+                <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:T.text5 }}>{showHistory ? "▲" : "▼"}</div>
               </button>
               {showHistory && (
                 <div style={{ maxHeight:"160px", overflowY:"auto" }}>
                   {history.map((h, i) => (
-                    <div key={i} onClick={() => { setSportKey(h.sport); setTab(h.feature); }} style={{ padding:"8px 10px", borderRadius:"6px", marginBottom:"4px", cursor:"pointer", background:"#0a0a0a", border:"1px solid #161616" }}>
-                      <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"11px", color:"#888", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{h.query}</div>
-                      <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#333", marginTop:"3px" }}>{SPORTS[h.sport]?.emoji} {h.feature}</div>
+                    <div key={i} onClick={() => { setSportKey(h.sport); setTab(h.feature); }} style={{ padding:"8px 10px", borderRadius:"6px", marginBottom:"4px", cursor:"pointer", background:T.bgCard, border:`1px solid ${T.border}` }}>
+                      <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"11px", color:T.text3, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{h.query}</div>
+                      <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:T.text5, marginTop:"3px" }}>{SPORTS[h.sport]?.emoji} {h.feature}</div>
                     </div>
                   ))}
                 </div>
@@ -663,51 +683,36 @@ export default function App() {
             </div>
           )}
 
-          {/* Bottom accent */}
+          {/* Active sport indicator */}
           <div style={{ padding:"16px", marginTop:"auto" }}>
-            {/* Background color picker */}
-            <div style={{ marginBottom:"12px" }}>
-              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#222", letterSpacing:"3px", marginBottom:"10px", paddingLeft:"4px" }}>BACKGROUND</div>
-              <div style={{ display:"flex", gap:"6px", flexWrap:"wrap", marginBottom:"8px" }}>
-                {BG_PRESETS.map(c => (
-                  <button key={c} onClick={() => setBgColor(c)} style={{ width:"22px", height:"22px", borderRadius:"50%", background:c, border: bgColor===c ? `2px solid ${sport.color}` : "2px solid #333", cursor:"pointer", transition:"border 0.2s" }}/>
-                ))}
-                <label style={{ width:"22px", height:"22px", borderRadius:"50%", border:"2px solid #333", cursor:"pointer", overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"12px", title:"Custom" }}>
-                  🎨
-                  <input type="color" value={bgColor} onChange={e => setBgColor(e.target.value)} style={{ opacity:0, position:"absolute", width:"1px", height:"1px" }}/>
-                </label>
-              </div>
-            </div>
-            <div style={{ background:`${sport.color}08`, border:`1px solid ${sport.color}18`, borderRadius:"8px", padding:"12px 14px" }}>
-              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:sport.color+"66", letterSpacing:"2px", marginBottom:"4px" }}>ACTIVE SPORT</div>
+            <div style={{ background:`${sport.color}10`, border:`1px solid ${sport.color}22`, borderRadius:"8px", padding:"12px 14px" }}>
+              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:sport.color+"88", letterSpacing:"2px", marginBottom:"4px" }}>ACTIVE SPORT</div>
               <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"18px", color:sport.color, letterSpacing:"3px" }}>{sport.label.toUpperCase()}</div>
             </div>
           </div>
         </div>
 
         {/* ── Content Area ── */}
-        <div style={{ flex:1, overflowY:"auto", background:bgColor }}>
-          {/* Content header strip */}
-          <div style={{ borderBottom:"1px solid #0f0f0f", padding:"18px 36px", display:"flex", alignItems:"center", gap:"12px", background:"#060606", position:"sticky", top:0, zIndex:10 }}>
+        <div style={{ flex:1, overflowY:"auto", background:T.bgApp }}>
+          <div style={{ borderBottom:`1px solid ${T.border}`, padding:"18px 36px", display:"flex", alignItems:"center", gap:"12px", background:T.bgSide, position:"sticky", top:0, zIndex:10 }}>
             <span style={{ fontSize:"20px" }}>{TABS.find(t=>t.id===tab)?.icon}</span>
             <div>
-              <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"20px", color:"#fff", letterSpacing:"3px" }}>{TABS.find(t=>t.id===tab)?.label.toUpperCase()}</div>
-              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:"#555", letterSpacing:"2px" }}>{sport.label.toUpperCase()} · SPORTIQ</div>
+              <div style={{ fontFamily:"'Bebas Neue',serif", fontSize:"20px", color:T.text, letterSpacing:"3px" }}>{TABS.find(t=>t.id===tab)?.label.toUpperCase()}</div>
+              <div style={{ fontFamily:"'Space Mono',monospace", fontSize:"8px", color:T.text5, letterSpacing:"2px" }}>{sport.label.toUpperCase()} · SPORTIQ</div>
             </div>
             <div style={{ marginLeft:"auto", height:"2px", flex:1, maxWidth:"120px", background:`linear-gradient(90deg,${sport.color}44,transparent)`, borderRadius:"1px" }}/>
           </div>
 
-          {/* Main content — all tabs stay mounted to preserve state */}
           <div style={{ padding:"32px 36px", maxWidth:"900px" }}>
-            <div style={{ display: tab==="dual"     ? "block" : "none" }}><DualAnalyst   key={sportKey} sport={sport} onSave={q => saveSearch(q, "dual")}/></div>
-            <div style={{ display: tab==="profile"  ? "block" : "none" }}><PlayerProfile key={sportKey} sport={sport} onSave={q => saveSearch(q, "profile")}/></div>
-            <div style={{ display: tab==="h2h"      ? "block" : "none" }}><HeadToHead    key={sportKey} sport={sport} onSave={(p1,p2) => saveSearch(`${p1} vs ${p2}`, "h2h")}/></div>
-            <div style={{ display: tab==="timeline" ? "block" : "none" }}><Timeline      key={sportKey} sport={sport} onSave={q => saveSearch(q, "timeline")}/></div>
+            <div style={{ display: tab==="dual"     ? "block" : "none" }}><DualAnalyst   key={sportKey} sport={sport} onSave={q => saveSearch(q, "dual")}     T={T}/></div>
+            <div style={{ display: tab==="profile"  ? "block" : "none" }}><PlayerProfile key={sportKey} sport={sport} onSave={q => saveSearch(q, "profile")}  T={T}/></div>
+            <div style={{ display: tab==="h2h"      ? "block" : "none" }}><HeadToHead    key={sportKey} sport={sport} onSave={(p1,p2) => saveSearch(`${p1} vs ${p2}`, "h2h")} T={T}/></div>
+            <div style={{ display: tab==="timeline" ? "block" : "none" }}><Timeline      key={sportKey} sport={sport} onSave={q => saveSearch(q, "timeline")} T={T}/></div>
           </div>
         </div>
       </div>
 
-      {showAuth && <AuthModal onClose={() => setShowAuth(false)}/>}
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} T={T}/>}
     </div>
   );
 }
