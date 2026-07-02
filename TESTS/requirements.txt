@@ -1,0 +1,6 @@
+httpx
+pytest
+ragas==0.1.21
+datasets
+langchain-google-genai
+deepeval
