@@ -49,6 +49,7 @@ $$;
 -- 5. Hybrid function — BM25 (full-text) + semantic (vector) via Reciprocal Rank Fusion
 --    RRF score = 1/(60 + semantic_rank) + 1/(60 + bm25_rank)
 --    The constant 60 is the standard RRF smoothing factor
+--    Uses LANGUAGE sql (not plpgsql) — no BEGIN/END required
 CREATE OR REPLACE FUNCTION match_sports_docs_hybrid(
   query_embedding vector(1536),
   query_text      text,
@@ -65,10 +66,8 @@ RETURNS TABLE(
   similarity float,
   bm25_rank  float
 )
-LANGUAGE plpgsql
+LANGUAGE sql
 AS $$
-BEGIN
-  RETURN QUERY
   WITH ranked AS (
     SELECT
       d.id,
@@ -85,17 +84,8 @@ BEGIN
       (match_sport IS NULL OR d.sport = match_sport)
       AND (match_type IS NULL OR d.type = match_type)
   )
-  SELECT
-    r.id,
-    r.content,
-    r.sport,
-    r.type,
-    r.metadata,
-    r.similarity,
-    r.bm25_rank
+  SELECT r.id, r.content, r.sport, r.type, r.metadata, r.similarity, r.bm25_rank
   FROM ranked r
-  ORDER BY
-    (1.0 / (60 + r.vec_rank)) + (1.0 / (60 + r.txt_rank)) DESC
+  ORDER BY (1.0 / (60 + r.vec_rank)) + (1.0 / (60 + r.txt_rank)) DESC
   LIMIT match_count;
-END;
 $$;
