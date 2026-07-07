@@ -64,9 +64,10 @@ async function retrieveContext(query, sport = null, type = null, limit = 3) {
     return {
       context: qualified.map((d) => d.content).join("\n\n---\n\n"),
       sources: qualified.map((d) => ({
-        snippet: d.content.slice(0, 120) + "...",
-        sport: d.sport,
-        type: d.type,
+        content:    d.content,
+        snippet:    d.content.slice(0, 120) + "...",
+        sport:      d.sport,
+        type:       d.type,
         similarity: parseFloat(d.similarity.toFixed(3)),
       })),
       belowThreshold: false,

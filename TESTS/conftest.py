@@ -61,8 +61,8 @@ def collect_analysis(question: str, sport: str) -> dict:
         "tactician":             tactician,
         "statistician":          statistician,
         "intent":                intent,
-        "tactician_contexts":    [s["snippet"] for s in sources.get("tactician", [])],
-        "statistician_contexts": [s["snippet"] for s in sources.get("statistician", [])],
+        "tactician_contexts":    [s.get("content", s["snippet"]) for s in sources.get("tactician", [])],
+        "statistician_contexts": [s.get("content", s["snippet"]) for s in sources.get("statistician", [])],
         "tactician_sources":     sources.get("tactician", []),
         "statistician_sources":  sources.get("statistician", []),
     }
