@@ -5,6 +5,37 @@ const supabase =
     ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY)
     : null;
 
+// Contextual Retrieval — prepend a Claude-generated context summary to each chunk
+// before embedding. This preserves the chunk's position and topic within the full
+// document, dramatically improving retrieval accuracy.
+// Uses Claude Haiku (fast + cheap) — runs once at ingest time, not at query time.
+async function generateChunkContext(chunk) {
+  if (!process.env.ANTHROPIC_KEY) return "";
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.ANTHROPIC_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 100,
+        messages: [{
+          role: "user",
+          content: `In 1-2 sentences, state what sport, player, and specific topic this chunk covers. Be precise — name the player and the exact subject (e.g. technique, stats, a specific match, a weakness).\n\nChunk:\n${chunk}`,
+        }],
+      }),
+    });
+    if (!res.ok) return "";
+    const data = await res.json();
+    return data.content[0].text.trim();
+  } catch {
+    return "";
+  }
+}
+
 async function embedText(text) {
   const res = await fetch("https://api.voyageai.com/v1/embeddings", {
     method: "POST",
@@ -23,7 +54,13 @@ async function storeDocument(content, metadata = {}, sport = "general", type = "
   if (!supabase) throw new Error("Supabase not configured");
   if (!process.env.VOYAGE_API_KEY) throw new Error("VOYAGE_API_KEY not set");
 
-  const embedding = await embedText(content);
+  // Contextual Retrieval: prepend Claude-generated context summary before embedding
+  // The stored content stays as the original chunk — only the embedding uses the
+  // contextualized version so retrieval is more accurate without bloating stored text
+  const context = await generateChunkContext(content);
+  const textToEmbed = context ? `Context: ${context}\n\n${content}` : content;
+
+  const embedding = await embedText(textToEmbed);
   const { error } = await supabase
     .from("sports_docs")
     .insert({ content, metadata, sport, type, embedding });
