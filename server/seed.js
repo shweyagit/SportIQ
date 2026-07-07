@@ -9,6 +9,7 @@
 
 require("dotenv").config();
 const { createClient } = require("@supabase/supabase-js");
+const { chunkText } = require("./services/scraper");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -96,14 +97,25 @@ async function embedBatch(texts) {
 }
 
 async function insertBatch(docs, type) {
-  console.log(`\nEmbedding ${docs.length} ${type} documents...`);
-  const embeddings = await embedBatch(docs.map((d) => d.content));
+  // Chunk each document before embedding — same pipeline as the RSS scraper
+  const chunks = [];
+  for (const doc of docs) {
+    const docChunks = chunkText(doc.content);
+    // If doc is too short to chunk (< 40 words), keep it as-is
+    const texts = docChunks.length > 0 ? docChunks : [doc.content];
+    for (const text of texts) {
+      chunks.push({ content: text, sport: doc.sport });
+    }
+  }
 
-  const rows = docs.map((doc, i) => ({
-    content: doc.content,
-    sport: doc.sport,
+  console.log(`\nEmbedding ${chunks.length} chunks from ${docs.length} ${type} documents...`);
+  const embeddings = await embedBatch(chunks.map((c) => c.content));
+
+  const rows = chunks.map((chunk, i) => ({
+    content:   chunk.content,
+    sport:     chunk.sport,
     type,
-    metadata: {},
+    metadata:  {},
     embedding: embeddings[i],
   }));
 
@@ -111,7 +123,7 @@ async function insertBatch(docs, type) {
   if (error) throw new Error(`Supabase insert error: ${error.message}`);
 
   const counts = rows.reduce((acc, r) => { acc[r.sport] = (acc[r.sport] || 0) + 1; return acc; }, {});
-  console.log(`✓ Inserted ${rows.length} ${type} docs:`, counts);
+  console.log(`✓ Inserted ${rows.length} chunks (from ${docs.length} docs) — ${type}:`, counts);
 }
 
 async function run() {

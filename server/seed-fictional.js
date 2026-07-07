@@ -13,6 +13,7 @@
 
 require("dotenv").config();
 const { storeDocument } = require("./rag");
+const { chunkText } = require("./services/scraper");
 
 // Set RESUME=3 to skip already-ingested docs (e.g. node seed-fictional.js --resume 3)
 const RESUME_FROM = parseInt(process.argv[3] || "0", 10);
@@ -145,14 +146,19 @@ async function run() {
   for (const doc of remaining) {
     const label = `${doc.metadata.player} (${doc.sport} / ${doc.metadata.type})`;
     try {
-      await storeDocument(doc.content, doc.metadata, doc.sport, doc.metadata.type);
-      console.log(`  ✓  ${label}`);
+      // Chunk before embedding — same pipeline as RSS scraper
+      const chunks = chunkText(doc.content);
+      const texts = chunks.length > 0 ? chunks : [doc.content];
+      for (const chunk of texts) {
+        await storeDocument(chunk, doc.metadata, doc.sport, doc.metadata.type);
+        await sleep(5000); // 5s between Voyage AI calls to avoid 429
+      }
+      console.log(`  ✓  ${label} → ${texts.length} chunk(s)`);
       success++;
     } catch (err) {
       console.error(`  ✗  ${label} — ${err.message}`);
       failed++;
     }
-    await sleep(5000); // 5s between calls to stay within Voyage AI rate limit
   }
 
   console.log(`\n[SEED] Done — ${success} ingested, ${failed} failed.\n`);
