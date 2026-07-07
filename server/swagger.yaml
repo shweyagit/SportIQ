@@ -873,8 +873,13 @@ components:
           format: float
           minimum: 0
           maximum: 1
-          description: Cosine similarity score. Only docs ≥ 0.65 are returned.
+          description: Cosine similarity score from vector search. Only docs ≥ 0.65 are returned.
           example: 0.821
+        bm25_rank:
+          type: number
+          format: float
+          description: BM25 full-text search score. Higher = stronger keyword match. Combined with similarity via Reciprocal Rank Fusion.
+          example: 0.0753
 
     AnalyseResponse:
       type: object

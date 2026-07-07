@@ -35,21 +35,23 @@ const SIMILARITY_THRESHOLD = 0.65;
 
 // Returns { context, sources, belowThreshold } — context is injected into the prompt,
 // sources are surfaced in the UI, belowThreshold signals when retrieval quality was poor.
+// Uses hybrid retrieval: BM25 (exact keyword match) + semantic (vector similarity) via RRF.
 async function retrieveContext(query, sport = null, type = null, limit = 3) {
   if (!supabase || !process.env.VOYAGE_API_KEY) return { context: "", sources: [], belowThreshold: false };
 
   try {
     const embedding = await embedText(query);
-    const { data, error } = await supabase.rpc("match_sports_docs", {
+    const { data, error } = await supabase.rpc("match_sports_docs_hybrid", {
       query_embedding: embedding,
-      match_sport: sport,
-      match_count: limit,
-      match_type: type,
+      query_text:      query,
+      match_sport:     sport,
+      match_count:     limit,
+      match_type:      type,
     });
     if (error || !data?.length) return { context: "", sources: [], belowThreshold: false };
 
-    // Log similarity scores for observability
-    data.forEach(d => console.log(`[RAG] similarity=${d.similarity.toFixed(3)} type=${d.type} sport=${d.sport}`));
+    // Log both scores for observability
+    data.forEach(d => console.log(`[RAG] similarity=${d.similarity.toFixed(3)} bm25=${d.bm25_rank.toFixed(4)} type=${d.type} sport=${d.sport}`));
 
     // Filter out docs below quality threshold
     const qualified = data.filter(d => d.similarity >= SIMILARITY_THRESHOLD);
@@ -69,6 +71,7 @@ async function retrieveContext(query, sport = null, type = null, limit = 3) {
         sport:      d.sport,
         type:       d.type,
         similarity: parseFloat(d.similarity.toFixed(3)),
+        bm25_rank:  parseFloat((d.bm25_rank || 0).toFixed(4)),
       })),
       belowThreshold: false,
     };
