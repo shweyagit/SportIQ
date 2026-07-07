@@ -48,7 +48,7 @@ tags:
   - name: History
     description: User search history (requires auth)
   - name: Ingest
-    description: RAG knowledge base management
+    description: RAG knowledge base management — manual ingest, bulk ingest, and RSS scraper
 
 paths:
 
@@ -150,12 +150,14 @@ paths:
                   value:
                     type: sources
                     tactician:
-                      - snippet: "Messi's dribbling relies on an extremely low centre of gravity..."
+                      - content: "Messi's dribbling relies on an extremely low centre of gravity, rapid changes of direction, and close ball control using the outside of his right foot..."
+                        snippet: "Messi's dribbling relies on an extremely low centre of gravity..."
                         sport: football
                         type: narrative
                         similarity: 0.821
                     statistician:
-                      - snippet: "Lionel Messi career stats: 800+ club goals, 8 Ballon d'Or..."
+                      - content: "Lionel Messi career stats: 800+ club goals across Barcelona, PSG, and Inter Miami. 5 UEFA Champions League titles. 8 Ballon d'Or awards..."
+                        snippet: "Lionel Messi career stats: 800+ club goals, 8 Ballon d'Or..."
                         sport: football
                         type: stats
                         similarity: 0.798
@@ -431,6 +433,22 @@ paths:
                 winner: Lionel Messi
         "400":
           $ref: "#/components/responses/BadRequest"
+        "404":
+          description: One or both players not found or sport mismatch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                not_found:
+                  value:
+                    error: "Player \"nank\" not found. Please enter a full player name."
+                sport_mismatch:
+                  value:
+                    error: "\"Toby Nankervis\" was found in Australian Rules, not cricket. Please search in the correct sport."
+                no_overlap:
+                  value:
+                    error: "\"api token\" didn't match a known cricket player. Please check the spelling."
         "429":
           $ref: "#/components/responses/RateLimited"
         "502":
@@ -624,6 +642,99 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /api/scrape:
+    post:
+      tags: [Ingest]
+      summary: Trigger RSS scrape
+      description: |
+        Scrapes live sports articles from RSS feeds and ingests them into the RAG knowledge base.
+        Articles are chunked into ~150 word paragraphs before embedding.
+        Document type (`narrative` or `stats`) is auto-detected from content.
+
+        **Feeds:**
+        - BBC Sport Football, Sky Sports → football
+        - BBC Sport Cricket, ESPN Cricinfo → cricket
+        - BBC Sport Tennis → tennis
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sports:
+                  type: array
+                  items:
+                    type: string
+                    enum: [football, cricket, tennis]
+                  default: [football, cricket, tennis]
+                  example: [football, cricket, tennis]
+                articlesPerFeed:
+                  type: integer
+                  default: 5
+                  description: Max articles to ingest per RSS feed
+                  example: 5
+            example:
+              sports: [football, cricket, tennis]
+              articlesPerFeed: 5
+      responses:
+        "200":
+          description: Scrape completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  timestamp:
+                    type: string
+                    format: date-time
+                  durationMs:
+                    type: integer
+                  total_ingested:
+                    type: integer
+                  total_skipped:
+                    type: integer
+                  errors:
+                    type: array
+                    items:
+                      type: string
+              example:
+                success: true
+                timestamp: "2026-07-07T10:00:00.000Z"
+                durationMs: 4537
+                total_ingested: 3
+                total_skipped: 22
+                errors: []
+        "502":
+          $ref: "#/components/responses/ClaudeError"
+
+  /api/scrape/status:
+    get:
+      tags: [Ingest]
+      summary: Last scrape status
+      description: Returns the result of the most recent scrape trigger. In-memory only — resets on server restart.
+      responses:
+        "200":
+          description: Last scrape result or never_run
+          content:
+            application/json:
+              schema:
+                type: object
+              examples:
+                never_run:
+                  value:
+                    status: never_run
+                last_run:
+                  value:
+                    status: ok
+                    lastRun:
+                      timestamp: "2026-07-07T10:00:00.000Z"
+                      durationMs: 4537
+                      total_ingested: 3
+                      total_skipped: 22
+                      errors: []
+
   /api/ingest/bulk:
     post:
       tags: [Ingest]
@@ -743,9 +854,13 @@ components:
     SourceDoc:
       type: object
       properties:
+        content:
+          type: string
+          description: Full text of the retrieved document — used by RAGAS/DeepEval for evaluation
+          example: "Messi's dribbling relies on an extremely low centre of gravity, rapid changes of direction, and close ball control..."
         snippet:
           type: string
-          description: First 120 characters of the retrieved document
+          description: First 120 characters of the retrieved document — used for UI display only
           example: "Messi's dribbling relies on an extremely low centre of gravity..."
         sport:
           type: string
